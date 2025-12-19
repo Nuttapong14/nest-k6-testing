@@ -1,0 +1,1117 @@
+openapi: 3.0.0
+info:
+  title: Constitution API
+  description: API for managing constitution principles, performance standards, and governance
+  version: 1.0.0
+  contact:
+    name: Constitution API Team
+    email: api@constitution.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3000/api
+    description: Development server
+  - url: https://api.constitution.com
+    description: Production server
+
+security:
+  - BearerAuth: []
+
+paths:
+  # Authentication Endpoints
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Login and get JWT tokens
+      description: Authenticate user and return access and refresh tokens
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  example: password123
+      responses:
+        '200':
+          description: Successful authentication
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    description: JWT access token
+                    example: eyJhbGciOiJIUzI1NiIs...
+                  refresh_token:
+                    type: string
+                    description: JWT refresh token
+                    example: eyJhbGciOiJIUzI1NiIs...
+                  expires_in:
+                    type: integer
+                    description: Token expiration time in seconds
+                    example: 900
+        '401':
+          description: Invalid credentials
+        '422':
+          description: Validation error
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Get new access token using refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+                  description: Valid refresh token
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    description: New JWT access token
+                  expires_in:
+                    type: integer
+                    description: Token expiration time in seconds
+        '401':
+          description: Invalid refresh token
+
+  # Principles Endpoints
+  /principles:
+    get:
+      tags:
+        - Principles
+      summary: Get all constitution principles
+      description: Retrieve all active constitution principles with pagination
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: priority
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+      responses:
+        '200':
+          description: List of principles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Principle'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '400':
+          description: Invalid query parameters
+
+    post:
+      tags:
+        - Principles
+      summary: Create a new principle
+      description: Add a new constitution principle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePrinciple'
+      responses:
+        '201':
+          description: Principle created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Principle'
+        '400':
+          description: Invalid input
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+
+  /principles/{id}:
+    get:
+      tags:
+        - Principles
+      summary: Get a specific principle
+      description: Retrieve a single principle by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Principle details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Principle'
+        '404':
+          description: Principle not found
+
+    put:
+      tags:
+        - Principles
+      summary: Update a principle
+      description: Update an existing principle
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePrinciple'
+      responses:
+        '200':
+          description: Principle updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Principle'
+        '400':
+          description: Invalid input
+        '404':
+          description: Principle not found
+
+    delete:
+      tags:
+        - Principles
+      summary: Delete a principle
+      description: Mark a principle as inactive (soft delete)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Principle deleted successfully
+        '404':
+          description: Principle not found
+
+  /principles/search:
+    get:
+      tags:
+        - Principles
+      summary: Search principles
+      description: Full-text search across principles
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Search query string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Principle'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+                  total:
+                    type: integer
+                    description: Total number of results
+
+  # Performance Standards Endpoints
+  /standards/performance:
+    get:
+      tags:
+        - Standards
+      summary: Get all performance standards
+      description: Retrieve performance standards for different endpoint types
+      parameters:
+        - name: endpointType
+          in: query
+          schema:
+            type: string
+            enum: [authentication, search, payment, general]
+        - name: active
+          in: query
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: List of performance standards
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PerformanceStandard'
+
+    post:
+      tags:
+        - Standards
+      summary: Create performance standard
+      description: Define a new performance standard
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePerformanceStandard'
+      responses:
+        '201':
+          description: Performance standard created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerformanceStandard'
+
+  /standards/performance/{id}:
+    put:
+      tags:
+        - Standards
+      summary: Update performance standard
+      description: Modify an existing performance standard
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePerformanceStandard'
+      responses:
+        '200':
+          description: Performance standard updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerformanceStandard'
+
+  # Load Test Requirements Endpoints
+  /requirements/load-test:
+    get:
+      tags:
+        - Requirements
+      summary: Get load test requirements
+      description: Retrieve k6 load testing requirements
+      parameters:
+        - name: principleId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: testType
+          in: query
+          schema:
+            type: string
+            enum: [smoke, load, stress, spike]
+      responses:
+        '200':
+          description: Load test requirements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LoadTestRequirement'
+
+  # Quality Gates Endpoints
+  /gates/quality:
+    get:
+      tags:
+        - Quality Gates
+      summary: Get quality gates
+      description: Retrieve quality gates and compliance checkpoints
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [automated, manual]
+        - name: principleId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of quality gates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QualityGate'
+
+  # Amendments Endpoints
+  /amendments:
+    get:
+      tags:
+        - Amendments
+      summary: Get amendments
+      description: Retrieve constitution amendments with filtering
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [proposed, under_review, approved, rejected, implemented]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+      responses:
+        '200':
+          description: List of amendments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Amendment'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags:
+        - Amendments
+      summary: Create amendment
+      description: Propose a new constitution amendment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAmendment'
+      responses:
+        '201':
+          description: Amendment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Amendment'
+
+  /amendments/{id}/vote:
+    post:
+      tags:
+        - Amendments
+      summary: Vote on amendment
+      description: Cast a vote on an amendment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoteAmendment'
+      responses:
+        '200':
+          description: Vote recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  currentStatus:
+                    type: string
+                    enum: [proposed, under_review, approved, rejected, implemented]
+
+  # Compliance Endpoints
+  /compliance/checks:
+    get:
+      tags:
+        - Compliance
+      summary: Get compliance checks
+      description: Retrieve compliance verification records
+      parameters:
+        - name: entityType
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [passed, failed, warning, pending]
+      responses:
+        '200':
+          description: Compliance checks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ComplianceCheck'
+
+    post:
+      tags:
+        - Compliance
+      summary: Create compliance check
+      description: Record a compliance verification activity
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateComplianceCheck'
+      responses:
+        '201':
+          description: Compliance check created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComplianceCheck'
+
+  # Health Check
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check
+      description: Application health status
+      responses:
+        '200':
+          description: Application is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+                  version:
+                    type: string
+                    example: 1.0.0
+                  database:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                      responseTime:
+                        type: number
+
+  # Metrics
+  /metrics:
+    get:
+      tags:
+        - Metrics
+      summary: Get application metrics
+      description: Retrieve performance and usage metrics
+      responses:
+        '200':
+          description: Application metrics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uptime:
+                    type: number
+                    description: Application uptime in seconds
+                  memory:
+                    type: object
+                    properties:
+                      used:
+                        type: number
+                      total:
+                        type: number
+                      percentage:
+                        type: number
+                  requests:
+                    type: object
+                    properties:
+                      total:
+                        type: number
+                      rate:
+                        type: number
+                  performance:
+                    type: object
+                    properties:
+                      avgResponseTime:
+                        type: number
+                      p95ResponseTime:
+                        type: number
+                      errorRate:
+                        type: number
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Principle:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 5
+        metadata:
+          type: object
+          properties:
+            category:
+              type: string
+            tags:
+              type: array
+              items:
+                type: string
+            relatedPrinciples:
+              type: array
+              items:
+                type: string
+            examples:
+              type: array
+              items:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    enum: [code, diagram, text]
+                  title:
+                    type: string
+                  content:
+                    type: string
+                  language:
+                    type: string
+        currentVersion:
+          type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        performanceStandards:
+          type: array
+          items:
+            $ref: '#/components/schemas/PerformanceStandard'
+        loadTestRequirements:
+          type: array
+          items:
+            $ref: '#/components/schemas/LoadTestRequirement'
+        qualityGates:
+          type: array
+          items:
+            $ref: '#/components/schemas/QualityGate'
+
+    CreatePrinciple:
+      type: object
+      required:
+        - title
+        - description
+        - priority
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          minLength: 10
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 5
+        metadata:
+          type: object
+
+    UpdatePrinciple:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+          minLength: 10
+        priority:
+          type: integer
+          minimum: 1
+          maximum: 5
+        metadata:
+          type: object
+
+    PerformanceStandard:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        endpointType:
+          type: string
+        targetResponseTime:
+          type: integer
+        metricType:
+          type: string
+          enum: [95th_percentile, average, max, min]
+        concurrentUsers:
+          type: integer
+        additionalMetrics:
+          type: object
+          properties:
+            cpuUsage:
+              type: number
+              maximum: 100
+            memoryUsage:
+              type: number
+              maximum: 100
+            errorRate:
+              type: number
+              maximum: 100
+        description:
+          type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreatePerformanceStandard:
+      type: object
+      required:
+        - name
+        - endpointType
+        - targetResponseTime
+        - metricType
+        - concurrentUsers
+      properties:
+        name:
+          type: string
+        endpointType:
+          type: string
+        targetResponseTime:
+          type: integer
+        metricType:
+          type: string
+          enum: [95th_percentile, average, max, min]
+        concurrentUsers:
+          type: integer
+        additionalMetrics:
+          type: object
+        description:
+          type: string
+
+    UpdatePerformanceStandard:
+      type: object
+      properties:
+        name:
+          type: string
+        targetResponseTime:
+          type: integer
+        metricType:
+          type: string
+          enum: [95th_percentile, average, max, min]
+        concurrentUsers:
+          type: integer
+        additionalMetrics:
+          type: object
+        description:
+          type: string
+
+    LoadTestRequirement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        testType:
+          type: string
+          enum: [smoke, load, stress, spike]
+        endpointPattern:
+          type: string
+        testParameters:
+          type: object
+          properties:
+            rampUp:
+              type: object
+              properties:
+                from:
+                  type: integer
+                to:
+                  type: integer
+                duration:
+                  type: string
+            constantLoad:
+              type: object
+              properties:
+                users:
+                  type: integer
+                duration:
+                  type: string
+            stress:
+              type: object
+              properties:
+                load:
+                  type: string
+                duration:
+                  type: string
+        expectedRate:
+          type: integer
+        maxResponseTime:
+          type: integer
+        maxErrorRate:
+          type: number
+        scriptPath:
+          type: string
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    QualityGate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+          enum: [automated, manual]
+        tool:
+          type: string
+        requirement:
+          type: string
+        criteria:
+          type: object
+          properties:
+            threshold:
+              type: number
+            unit:
+              type: string
+            conditions:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  operator:
+                    type: string
+                  value:
+                    type: any
+        isRequired:
+          type: boolean
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Amendment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [addition, modification, removal]
+        changes:
+          type: array
+          items:
+            type: object
+            properties:
+              entityType:
+                type: string
+              entityId:
+                type: string
+              oldValue:
+                type: object
+              newValue:
+                type: object
+              impact:
+                type: string
+        status:
+          type: string
+          enum: [proposed, under_review, approved, rejected, implemented]
+        proposedBy:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+        proposedAt:
+          type: string
+          format: date-time
+        votingStartsAt:
+          type: string
+          format: date-time
+        votingEndsAt:
+          type: string
+          format: date-time
+        implementedAt:
+          type: string
+          format: date-time
+        migrationPlan:
+          type: string
+
+    CreateAmendment:
+      type: object
+      required:
+        - title
+        - description
+        - type
+        - changes
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [addition, modification, removal]
+        changes:
+          type: array
+          items:
+            type: object
+            required:
+              - entityType
+              - entityId
+              - newValue
+              - impact
+            properties:
+              entityType:
+                type: string
+              entityId:
+                type: string
+              oldValue:
+                type: object
+              newValue:
+                type: object
+              impact:
+                type: string
+        migrationPlan:
+          type: string
+
+    VoteAmendment:
+      type: object
+      required:
+        - vote
+      properties:
+        vote:
+          type: string
+          enum: [approve, reject, abstain]
+        comment:
+          type: string
+
+    ComplianceCheck:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        entityType:
+          type: string
+        entityId:
+          type: string
+        checkType:
+          type: string
+        status:
+          type: string
+          enum: [passed, failed, warning, pending]
+        results:
+          type: object
+          properties:
+            score:
+              type: number
+              maximum: 100
+            issues:
+              type: array
+              items:
+                type: string
+            metrics:
+              type: object
+              additionalProperties:
+                type: number
+        notes:
+          type: string
+        performedBy:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+        performedAt:
+          type: string
+          format: date-time
+
+    CreateComplianceCheck:
+      type: object
+      required:
+        - entityType
+        - entityId
+        - checkType
+        - status
+      properties:
+        entityType:
+          type: string
+        entityId:
+          type: string
+        checkType:
+          type: string
+        status:
+          type: string
+          enum: [passed, failed, warning, pending]
+        results:
+          type: object
+        notes:
+          type: string
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+tags:
+  - name: Authentication
+    description: Authentication endpoints
+  - name: Principles
+    description: Constitution principles management
+  - name: Standards
+    description: Performance and quality standards
+  - name: Requirements
+    description: Load testing requirements
+  - name: Quality Gates
+    description: Compliance checkpoints
+  - name: Amendments
+    description: Constitution amendment process
+  - name: Compliance
+    description: Compliance verification
+  - name: Health
+    description: Health check endpoints
+  - name: Metrics
+    description: Application metrics

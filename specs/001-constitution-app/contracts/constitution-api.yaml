@@ -1,0 +1,1140 @@
+openapi: 3.0.3
+info:
+  title: Constitution Application API
+  description: API for accessing and managing the nest-k6-testing project constitution
+  version: 1.0.0
+  contact:
+    name: Development Team
+    email: dev-team@company.com
+  license:
+    name: MIT
+
+servers:
+  - url: https://api.constitution.company.com/v1
+    description: Production server
+  - url: https://staging-api.constitution.company.com/v1
+    description: Staging server
+  - url: http://localhost:3000/v1
+    description: Development server
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Authenticate user
+      description: Authenticate user and return JWT tokens
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      description: Refresh access token using refresh token
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout user
+      description: Invalidate refresh token
+      operationId: logout
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /principles:
+    get:
+      tags:
+        - Principles
+      summary: List all principles
+      description: Retrieve all active constitution principles
+      operationId: listPrinciples
+      parameters:
+        - name: include
+          in: query
+          description: Include related entities
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [standards, loadTests, qualityGates, governance]
+            style: form
+        - name: category
+          in: query
+          description: Filter by category
+          schema:
+            type: string
+        - name: tags
+          in: query
+          description: Filter by tags
+          schema:
+            type: array
+            items:
+              type: string
+            style: form
+      responses:
+        '200':
+          description: Principles retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrinciplesResponse'
+
+  /principles/{slug}:
+    get:
+      tags:
+        - Principles
+      summary: Get principle by slug
+      description: Retrieve a specific principle by its slug
+      operationId: getPrincipleBySlug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: include
+          in: query
+          description: Include related entities
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [standards, loadTests, qualityGates, governance, versions]
+            style: form
+      responses:
+        '200':
+          description: Principle retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrincipleResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /principles/{slug}/versions:
+    get:
+      tags:
+        - Principles
+      summary: Get principle version history
+      description: Retrieve all versions of a principle
+      operationId: getPrincipleVersions
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Versions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PrincipleVersion'
+
+  /performance/standards:
+    get:
+      tags:
+        - Performance
+      summary: List performance standards
+      description: Retrieve all performance standards
+      operationId: listPerformanceStandards
+      parameters:
+        - name: endpointType
+          in: query
+          description: Filter by endpoint type
+          schema:
+            type: string
+            enum: [authentication, search, payment, database, general]
+      responses:
+        '200':
+          description: Performance standards retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PerformanceStandard'
+
+  /performance/standards/{id}:
+    get:
+      tags:
+        - Performance
+      summary: Get performance standard
+      description: Retrieve a specific performance standard
+      operationId: getPerformanceStandard
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Performance standard retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerformanceStandard'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /load-testing/requirements:
+    get:
+      tags:
+        - Load Testing
+      summary: List load test requirements
+      description: Retrieve all k6 load test requirements
+      operationId: listLoadTestRequirements
+      parameters:
+        - name: testType
+          in: query
+          description: Filter by test type
+          schema:
+            type: string
+            enum: [smoke, load, stress, spike]
+        - name: active
+          in: query
+          description: Filter by active status
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Load test requirements retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LoadTestRequirement'
+
+  /load-testing/scripts:
+    get:
+      tags:
+        - Load Testing
+      summary: Get k6 test scripts
+      description: Download k6 test scripts for execution
+      operationId: getK6Scripts
+      parameters:
+        - name: principleSlug
+          in: query
+          description: Filter by principle
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Scripts retrieved successfully
+          content:
+            application/zip:
+              schema:
+                type: string
+                format: binary
+
+  /quality/gates:
+    get:
+      tags:
+        - Quality
+      summary: List quality gates
+      description: Retrieve all quality gates
+      operationId: listQualityGates
+      parameters:
+        - name: principleSlug
+          in: query
+          description: Filter by principle
+          schema:
+            type: string
+        - name: type
+          in: query
+          description: Filter by gate type
+          schema:
+            type: string
+            enum: [automated, manual]
+      responses:
+        '200':
+          description: Quality gates retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/QualityGate'
+
+  /quality/compliance:
+    post:
+      tags:
+        - Quality
+      summary: Check compliance
+      description: Check if a feature complies with constitution principles
+      operationId: checkCompliance
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComplianceCheckRequest'
+      responses:
+        '200':
+          description: Compliance check completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComplianceCheckResponse'
+
+  /governance/rules:
+    get:
+      tags:
+        - Governance
+      summary: List governance rules
+      description: Retrieve all governance rules
+      operationId: listGovernanceRules
+      parameters:
+        - name: ruleType
+          in: query
+          description: Filter by rule type
+          schema:
+            type: string
+            enum: [amendment, compliance, approval, enforcement]
+      responses:
+        '200':
+          description: Governance rules retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GovernanceRule'
+
+  /governance/amendments:
+    get:
+      tags:
+        - Governance
+      summary: List amendments
+      description: Retrieve all constitution amendments
+      operationId: listAmendments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          description: Filter by status
+          schema:
+            type: string
+            enum: [proposed, under_review, approved, rejected, implemented]
+      responses:
+        '200':
+          description: Amendments retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Amendment'
+
+    post:
+      tags:
+        - Governance
+      summary: Propose amendment
+      description: Propose a constitution amendment
+      operationId: proposeAmendment
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AmendmentProposal'
+      responses:
+        '201':
+          description: Amendment proposed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Amendment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /governance/amendments/{id}/vote:
+    post:
+      tags:
+        - Governance
+      summary: Vote on amendment
+      description: Cast vote on a proposed amendment
+      operationId: voteOnAmendment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoteRequest'
+      responses:
+        '200':
+          description: Vote recorded successfully
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Vote already cast
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /search:
+    get:
+      tags:
+        - Search
+      summary: Search constitution
+      description: Full-text search across constitution content
+      operationId: searchConstitution
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Search query
+          schema:
+            type: string
+            minLength: 2
+        - name: type
+          in: query
+          description: Content type filter
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [principle, standard, requirement, rule]
+            style: form
+        - name: limit
+          in: query
+          description: Maximum results
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: offset
+          in: query
+          description: Results offset
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Search completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+        user:
+          $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+
+    Principle:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        priority:
+          type: integer
+        metadata:
+          type: object
+          properties:
+            category:
+              type: string
+            tags:
+              type: array
+              items:
+                type: string
+            relatedPrinciples:
+              type: array
+              items:
+                type: string
+            examples:
+              type: array
+              items:
+                type: object
+                properties:
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  content:
+                    type: string
+                  language:
+                    type: string
+        currentVersion:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    PrincipleVersion:
+      type: object
+      properties:
+        id:
+          type: integer
+        version:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        changeLog:
+          type: string
+        author:
+          type: string
+        effectiveDate:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    PerformanceStandard:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        principleId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        endpointType:
+          type: string
+          enum: [authentication, search, payment, database, general]
+        targetResponseTime:
+          type: integer
+          description: Target response time in milliseconds
+        metricType:
+          type: string
+          enum: [95th_percentile, average, max, min]
+        concurrentUsers:
+          type: integer
+        additionalMetrics:
+          type: object
+          properties:
+            cpuUsage:
+              type: number
+            memoryUsage:
+              type: number
+            errorRate:
+              type: number
+        description:
+          type: string
+        isActive:
+          type: boolean
+
+    LoadTestRequirement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        principleId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        testType:
+          type: string
+          enum: [smoke, load, stress, spike]
+        endpointPattern:
+          type: string
+        testParameters:
+          type: object
+          properties:
+            rampUp:
+              type: object
+              properties:
+                from:
+                  type: integer
+                to:
+                  type: integer
+                duration:
+                  type: string
+            constantLoad:
+              type: object
+              properties:
+                users:
+                  type: integer
+                duration:
+                  type: string
+            stress:
+              type: object
+              properties:
+                load:
+                  type: string
+                duration:
+                  type: string
+        expectedRate:
+          type: integer
+          description: Expected requests per second
+        maxResponseTime:
+          type: integer
+          description: Maximum response time in milliseconds
+        maxErrorRate:
+          type: number
+          description: Maximum error rate percentage
+        scriptPath:
+          type: string
+        isActive:
+          type: boolean
+
+    QualityGate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        principleId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+          enum: [automated, manual]
+        tool:
+          type: string
+        requirement:
+          type: string
+        criteria:
+          type: object
+          properties:
+            threshold:
+              type: number
+            unit:
+              type: string
+            conditions:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  operator:
+                    type: string
+                  value:
+                    type: string
+        isRequired:
+          type: boolean
+        isActive:
+          type: boolean
+
+    GovernanceRule:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        principleId:
+          type: string
+          format: uuid
+        ruleType:
+          type: string
+          enum: [amendment, compliance, approval, enforcement]
+        title:
+          type: string
+        description:
+          type: string
+        parameters:
+          type: object
+          properties:
+            requiredVotes:
+              type: integer
+            votingPeriod:
+              type: string
+            approvalProcess:
+              type: array
+              items:
+                type: string
+            escalationPath:
+              type: array
+              items:
+                type: string
+            remediationPlan:
+              type: boolean
+        isActive:
+          type: boolean
+        effectiveFrom:
+          type: string
+          format: date-time
+        effectiveTo:
+          type: string
+          format: date-time
+
+    Amendment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [addition, modification, removal]
+        changes:
+          type: array
+          items:
+            type: object
+            properties:
+              entityType:
+                type: string
+              entityId:
+                type: string
+              oldValue:
+                type: string
+              newValue:
+                type: string
+              impact:
+                type: string
+        status:
+          type: string
+          enum: [proposed, under_review, approved, rejected, implemented]
+        proposedBy:
+          $ref: '#/components/schemas/User'
+        proposedAt:
+          type: string
+          format: date-time
+        votingStartsAt:
+          type: string
+          format: date-time
+        votingEndsAt:
+          type: string
+          format: date-time
+        implementedAt:
+          type: string
+          format: date-time
+        migrationPlan:
+          type: string
+        votes:
+          type: array
+          items:
+            $ref: '#/components/schemas/AmendmentVote'
+
+    AmendmentVote:
+      type: object
+      properties:
+        voter:
+          $ref: '#/components/schemas/User'
+        vote:
+          type: string
+          enum: [approve, reject, abstain]
+        comment:
+          type: string
+        votedAt:
+          type: string
+          format: date-time
+
+    AmendmentProposal:
+      type: object
+      required:
+        - title
+        - description
+        - type
+        - changes
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [addition, modification, removal]
+        changes:
+          type: array
+          items:
+            type: object
+            required:
+              - entityType
+              - entityId
+              - newValue
+              - impact
+            properties:
+              entityType:
+                type: string
+              entityId:
+                type: string
+              oldValue:
+                type: string
+              newValue:
+                type: string
+              impact:
+                type: string
+        migrationPlan:
+          type: string
+
+    VoteRequest:
+      type: object
+      required:
+        - vote
+      properties:
+        vote:
+          type: string
+          enum: [approve, reject, abstain]
+        comment:
+          type: string
+
+    ComplianceCheckRequest:
+      type: object
+      required:
+        - entityType
+        - entityId
+      properties:
+        entityType:
+          type: string
+          enum: [feature, endpoint, service]
+        entityId:
+          type: string
+        checks:
+          type: array
+          items:
+            type: string
+            description: Specific checks to perform
+        context:
+          type: object
+          description: Additional context for compliance check
+
+    ComplianceCheckResponse:
+      type: object
+      properties:
+        checkId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [passed, failed, warning, pending]
+        score:
+          type: number
+          minimum: 0
+          maximum: 100
+        results:
+          type: object
+          properties:
+            compliant:
+              type: array
+              items:
+                type: string
+            nonCompliant:
+              type: array
+              items:
+                type: string
+            warnings:
+              type: array
+              items:
+                type: string
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComplianceIssue'
+        performedAt:
+          type: string
+          format: date-time
+
+    ComplianceIssue:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
+        title:
+          type: string
+        description:
+          type: string
+        remediationSteps:
+          type: string
+        relatedPrinciple:
+          type: string
+
+    SearchResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              title:
+                type: string
+              content:
+                type: string
+              type:
+                type: string
+              url:
+                type: string
+              highlights:
+                type: array
+                items:
+                  type: string
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    PrinciplesResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Principle'
+        included:
+          type: object
+          properties:
+            performanceStandards:
+              type: array
+              items:
+                $ref: '#/components/schemas/PerformanceStandard'
+            loadTestRequirements:
+              type: array
+              items:
+                $ref: '#/components/schemas/LoadTestRequirement'
+            qualityGates:
+              type: array
+              items:
+                $ref: '#/components/schemas/QualityGate'
+            governanceRules:
+              type: array
+              items:
+                $ref: '#/components/schemas/GovernanceRule'
+
+    PrincipleResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Principle'
+        included:
+          type: object
+          properties:
+            versions:
+              type: array
+              items:
+                $ref: '#/components/schemas/PrincipleVersion'
+            performanceStandards:
+              type: array
+              items:
+                $ref: '#/components/schemas/PerformanceStandard'
+            loadTestRequirements:
+              type: array
+              items:
+                $ref: '#/components/schemas/LoadTestRequirement'
+            qualityGates:
+              type: array
+              items:
+                $ref: '#/components/schemas/QualityGate'
+            governanceRules:
+              type: array
+              items:
+                $ref: '#/components/schemas/GovernanceRule'
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    TooManyRequests:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          headers:
+            Retry-After:
+              description: Time in seconds to wait before retrying
+              schema:
+                type: integer
+
+tags:
+  - name: Authentication
+    description: Authentication and authorization endpoints
+  - name: Principles
+    description: Core constitution principles management
+  - name: Performance
+    description: Performance standards and metrics
+  - name: Load Testing
+    description: k6 load testing requirements and scripts
+  - name: Quality
+    description: Quality gates and compliance checking
+  - name: Governance
+    description: Constitution governance and amendments
+  - name: Search
+    description: Full-text search across constitution

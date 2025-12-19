@@ -1,0 +1,123 @@
+version: '3.8'
+
+services:
+  # K6 Load Testing Service
+  k6-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - BASE_URL=http://app:3000
+      - K6_PROMETHEUS_RW_SERVER_URL=http://prometheus:9090/api/v1/write
+    volumes:
+      - ./results:/results
+      - ./reports:/reports
+    networks:
+      - loadtest-network
+    depends_on:
+      - app
+      - prometheus
+      - grafana
+    command: ["run", "--out", "json=/results/results.json", "--out", "prometheus", "mixed-workload-test.js"]
+
+  # Application Under Test
+  app:
+    build:
+      context: ../../
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=test
+      - DATABASE_URL=postgresql://testuser:testpass@postgres-test:5432/testdb
+      - JWT_SECRET=test-jwt-secret-for-load-testing
+      - JWT_REFRESH_SECRET=test-refresh-secret-for-load-testing
+      - DATABASE_HOST=postgres-test
+      - DATABASE_PORT=5432
+      - DATABASE_NAME=testdb
+      - DATABASE_USER=testuser
+      - DATABASE_PASSWORD=testpass
+    networks:
+      - loadtest-network
+    depends_on:
+      - postgres-test
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Test Database
+  postgres-test:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=testdb
+      - POSTGRES_USER=testuser
+      - POSTGRES_PASSWORD=testpass
+    networks:
+      - loadtest-network
+    volumes:
+      - postgres-test-data:/var/lib/postgresql/data
+      - ../../docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d testdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Prometheus for Metrics Collection
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    networks:
+      - loadtest-network
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+
+  # Grafana for Visualization
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    networks:
+      - loadtest-network
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+
+  # InfluxDB for Time Series Data (Alternative to Prometheus)
+  influxdb:
+    image: influxdb:2.7-alpine
+    ports:
+      - "8086:8086"
+    networks:
+      - loadtest-network
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=password123
+      - DOCKER_INFLUXDB_INIT_ORG=k6-tests
+      - DOCKER_INFLUXDB_INIT_BUCKET=load-test-results
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+
+networks:
+  loadtest-network:
+    driver: bridge
+
+volumes:
+  postgres-test-data:
+  prometheus-data:
+  grafana-data:
+  influxdb-data:
