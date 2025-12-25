@@ -33,6 +33,9 @@ export interface AuthTokens {
   expiresIn: string;
 }
 
+/**
+ * Service responsible for user authentication, registration, and token management.
+ */
 @Injectable()
 export class AuthService {
   constructor(
@@ -47,7 +50,11 @@ export class AuthService {
   ) {}
 
   /**
-   * Validate a user by email and password
+   * Validates user credentials and returns the user object if successful.
+   * 
+   * @param email - User's email address
+   * @param password - User's plain text password
+   * @returns The user entity or null if validation fails
    */
   async validateUser(email: string, password: string): Promise<User | null> {
     const user = await this.userRepository.findOne({
@@ -75,7 +82,10 @@ export class AuthService {
   }
 
   /**
-   * Validate a user by ID
+   * Retrieves a user by their unique identifier.
+   * 
+   * @param id - User's UUID
+   * @returns The user entity or null if not found
    */
   async validateUserById(id: string): Promise<User | null> {
     return this.userRepository.findOne({
@@ -85,7 +95,11 @@ export class AuthService {
   }
 
   /**
-   * Login user and return JWT tokens
+   * Authenticates a user and generates JWT access and refresh tokens.
+   * 
+   * @param loginDto - Data containing user email and password
+   * @throws UnauthorizedException if credentials are invalid
+   * @returns Object containing access token, refresh token, and expiration time
    */
   async login(loginDto: LoginDto): Promise<AuthTokens> {
     const { email, password } = loginDto;
@@ -124,7 +138,12 @@ export class AuthService {
   }
 
   /**
-   * Register a new user
+   * Registers a new user and returns their initial authentication tokens.
+   * 
+   * @param registerDto - Data containing new user's name, email, and password
+   * @throws ConflictException if the email is already registered
+   * @throws BadRequestException if the password does not meet security requirements
+   * @returns Authentication tokens for the newly registered user
    */
   async register(registerDto: RegisterDto): Promise<AuthTokens> {
     const { email, password, name } = registerDto;
@@ -176,7 +195,12 @@ export class AuthService {
   }
 
   /**
-   * Refresh access token using refresh token
+   * Generates a new pair of access and refresh tokens using a valid refresh token.
+   * Implements token rotation by returning a new refresh token as well.
+   * 
+   * @param refreshTokenDto - Data containing the current refresh token
+   * @throws UnauthorizedException if the token is invalid, expired, or the user is inactive
+   * @returns New authentication tokens
    */
   async refreshToken(refreshTokenDto: RefreshTokenDto): Promise<AuthTokens> {
     const { refreshToken } = refreshTokenDto;
@@ -222,7 +246,11 @@ export class AuthService {
   }
 
   /**
-   * Validate refresh token
+   * Checks if a refresh token is valid and belongs to the specified user.
+   * 
+   * @param userId - Expected user ID
+   * @param refreshToken - Token to validate
+   * @returns The user entity if valid, null otherwise
    */
   async validateRefreshToken(
     userId: string,
@@ -244,7 +272,9 @@ export class AuthService {
   }
 
   /**
-   * Logout user (invalidate refresh token)
+   * Handles user logout by invalidating the provided refresh token.
+   * 
+   * @param refreshToken - Token to invalidate
    */
   async logout(refreshToken: string): Promise<void> {
     // In a production environment, you would:
@@ -255,7 +285,11 @@ export class AuthService {
   }
 
   /**
-   * Get user profile
+   * Retrieves the full user profile including roles.
+   * 
+   * @param userId - User UUID
+   * @throws NotFoundException if user doesn't exist
+   * @returns User entity with relations
    */
   async getProfile(userId: string): Promise<User> {
     const user = await this.userRepository.findOne({

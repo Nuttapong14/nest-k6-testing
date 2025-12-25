@@ -14,6 +14,9 @@ import {
 } from './dto/principle.dto';
 import { PaginatedResponse, PaginationMetaDto } from './dto/pagination.dto';
 
+/**
+ * Service for managing constitution principles and their versions.
+ */
 @Injectable()
 export class ConstitutionService {
   constructor(
@@ -23,6 +26,12 @@ export class ConstitutionService {
     private readonly principleVersionRepository: Repository<PrincipleVersion>,
   ) {}
 
+  /**
+   * Retrieves a paginated and filtered list of constitution principles.
+   * 
+   * @param searchDto - Criteria for filtering, searching, and pagination
+   * @returns A paginated result containing principle entities and metadata
+   */
   async findAll(
     searchDto: SearchPrinciplesDto,
   ): Promise<PaginatedResponse<Principle>> {
@@ -105,6 +114,13 @@ export class ConstitutionService {
     return { data: principles, meta };
   }
 
+  /**
+   * Retrieves a single principle by its unique slug.
+   * 
+   * @param slug - The URL-friendly identifier for the principle
+   * @throws NotFoundException if the principle does not exist
+   * @returns The principle entity with all associated relations
+   */
   async findOne(slug: string): Promise<Principle> {
     const principle = await this.principleRepository.findOne({
       where: { slug },
@@ -124,6 +140,14 @@ export class ConstitutionService {
     return principle;
   }
 
+  /**
+   * Creates a new constitution principle and its initial version.
+   * 
+   * @param createPrincipleDto - Data for the new principle
+   * @param authorId - ID of the user creating the principle
+   * @throws BadRequestException if the slug is already taken
+   * @returns The newly created principle entity
+   */
   async create(
     createPrincipleDto: CreatePrincipleDto,
     authorId: string,
@@ -162,6 +186,16 @@ export class ConstitutionService {
     return savedPrinciple;
   }
 
+  /**
+   * Updates an existing principle and creates a new version if significant changes occur.
+   * 
+   * @param id - Principle UUID
+   * @param updatePrincipleDto - Data to update
+   * @param authorId - ID of the user performing the update
+   * @throws NotFoundException if principle doesn't exist
+   * @throws BadRequestException if the new slug already exists
+   * @returns The updated principle entity
+   */
   async update(
     id: string,
     updatePrincipleDto: UpdatePrincipleDto,
@@ -223,6 +257,12 @@ export class ConstitutionService {
     return await this.principleRepository.save(principle);
   }
 
+  /**
+   * Performs a soft delete by setting the isActive flag to false.
+   * 
+   * @param id - Principle UUID
+   * @throws NotFoundException if principle doesn't exist
+   */
   async remove(id: string): Promise<void> {
     const principle = await this.principleRepository.findOne({ where: { id } });
 
@@ -235,6 +275,13 @@ export class ConstitutionService {
     await this.principleRepository.save(principle);
   }
 
+  /**
+   * Finds principles sharing similar categories or tags.
+   * 
+   * @param principleId - ID of the source principle
+   * @throws NotFoundException if source principle doesn't exist
+   * @returns Up to 5 related principle entities
+   */
   async findRelatedPrinciples(principleId: string): Promise<Principle[]> {
     const principle = await this.principleRepository.findOne({
       where: { id: principleId },
@@ -268,6 +315,14 @@ export class ConstitutionService {
     return relatedPrinciples;
   }
 
+  /**
+   * Internal helper to create a historical snapshot of a principle version.
+   * 
+   * @param principle - The principle being versioned
+   * @param authorId - ID of the user responsible for the change
+   * @param changeLog - Summary of changes made
+   * @returns The created version entity
+   */
   private async createVersion(
     principle: Principle,
     authorId: string,
