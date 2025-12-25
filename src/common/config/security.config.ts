@@ -87,9 +87,13 @@ export default registerAs('security', () => ({
 
   // JWT configuration
   jwt: {
-    accessTokenSecret: process.env.JWT_ACCESS_SECRET || 'default-access-secret-change-in-production',
+    accessTokenSecret:
+      process.env.JWT_ACCESS_SECRET ||
+      'default-access-secret-change-in-production',
     accessTokenExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
-    refreshTokenSecret: process.env.JWT_REFRESH_SECRET || 'default-refresh-secret-change-in-production',
+    refreshTokenSecret:
+      process.env.JWT_REFRESH_SECRET ||
+      'default-refresh-secret-change-in-production',
     refreshTokenExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
     issuer: process.env.JWT_ISSUER || 'constitution-app',
     audience: process.env.JWT_AUDIENCE || 'constitution-app-users',

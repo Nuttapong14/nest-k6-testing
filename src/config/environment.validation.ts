@@ -1,5 +1,15 @@
 import { plainToClass, Transform } from 'class-transformer';
-import { IsString, IsNumber, IsOptional, IsBoolean, IsUrl, IsEnum, Min, Max, ValidateIf } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsOptional,
+  IsBoolean,
+  IsUrl,
+  IsEnum,
+  Min,
+  Max,
+  ValidateIf,
+} from 'class-validator';
 
 export enum Environment {
   DEVELOPMENT = 'development',
@@ -233,7 +243,7 @@ export class EnvironmentVariables {
   @Transform(({ value }) => value === 'true')
   DEBUG_QUERIES?: boolean = false;
 
-  @ValidateIf(o => o.NODE_ENV === Environment.TEST)
+  @ValidateIf((o) => o.NODE_ENV === Environment.TEST)
   @IsOptional()
   @IsString()
   TEST_DATABASE_URL?: string;
@@ -249,11 +259,21 @@ export function validate(config: Record<string, unknown>) {
 
   // Ensure JWT secrets are provided in production
   if (validatedConfig.NODE_ENV === Environment.PRODUCTION) {
-    if (!validatedConfig.JWT_ACCESS_SECRET || validatedConfig.JWT_ACCESS_SECRET.length < 32) {
-      errors.push('JWT_ACCESS_SECRET must be at least 32 characters in production');
+    if (
+      !validatedConfig.JWT_ACCESS_SECRET ||
+      validatedConfig.JWT_ACCESS_SECRET.length < 32
+    ) {
+      errors.push(
+        'JWT_ACCESS_SECRET must be at least 32 characters in production',
+      );
     }
-    if (!validatedConfig.JWT_REFRESH_SECRET || validatedConfig.JWT_REFRESH_SECRET.length < 32) {
-      errors.push('JWT_REFRESH_SECRET must be at least 32 characters in production');
+    if (
+      !validatedConfig.JWT_REFRESH_SECRET ||
+      validatedConfig.JWT_REFRESH_SECRET.length < 32
+    ) {
+      errors.push(
+        'JWT_REFRESH_SECRET must be at least 32 characters in production',
+      );
     }
   }
 
@@ -263,8 +283,13 @@ export function validate(config: Record<string, unknown>) {
   }
 
   // Check database URL format if provided
-  if (validatedConfig.TEST_DATABASE_URL && !validatedConfig.TEST_DATABASE_URL.startsWith('postgres://')) {
-    errors.push('TEST_DATABASE_URL must be a valid PostgreSQL connection string');
+  if (
+    validatedConfig.TEST_DATABASE_URL &&
+    !validatedConfig.TEST_DATABASE_URL.startsWith('postgres://')
+  ) {
+    errors.push(
+      'TEST_DATABASE_URL must be a valid PostgreSQL connection string',
+    );
   }
 
   if (errors.length > 0) {

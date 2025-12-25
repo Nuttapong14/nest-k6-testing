@@ -139,7 +139,13 @@ export class Payment {
   nextRetryAt?: Date;
 
   // Refund information
-  @Column({ name: 'refund_amount', type: 'decimal', precision: 10, scale: 2, nullable: true })
+  @Column({
+    name: 'refund_amount',
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
+    nullable: true,
+  })
   refundAmount?: number;
 
   @Column({ name: 'refund_reason', type: 'text', nullable: true })

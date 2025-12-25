@@ -267,7 +267,9 @@ export class SeedInitialData1765970827000 implements MigrationInterface {
     console.log('   - 4 Roles (admin, editor, viewer, qa)');
     console.log('   - 5 Users (with password: Test1234!)');
     console.log('   - 5 User-Role assignments');
-    console.log('   - 5 Principles (performance, security, scalability, reliability, testing)');
+    console.log(
+      '   - 5 Principles (performance, security, scalability, reliability, testing)',
+    );
     console.log('   - 3 Performance Standards (auth, search, payment)');
     console.log('   - 3 Governance Rules (amendment, compliance, enforcement)');
     console.log('   - 3 Amendments (under_review, approved, rejected)');
@@ -306,7 +308,9 @@ export class SeedInitialData1765970827000 implements MigrationInterface {
       SELECT id FROM users WHERE email LIKE '%@constitution.app'
     )`);
 
-    await queryRunner.query(`DELETE FROM users WHERE email LIKE '%@constitution.app'`);
+    await queryRunner.query(
+      `DELETE FROM users WHERE email LIKE '%@constitution.app'`,
+    );
 
     await queryRunner.query(`DELETE FROM roles WHERE name IN (
       'admin', 'editor', 'viewer', 'qa'

@@ -2,6 +2,32 @@ import { Injectable } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { PerformanceLoggerService } from './performance-logger.service';
 
+interface SlowQueryResult {
+  query: string;
+  calls: number;
+  total_time: number;
+  mean_time: number;
+  rows: number;
+  hit_percent: number;
+}
+
+interface PlanNode {
+  'Node Type': string;
+  'Relation Name'?: string;
+  'Actual Rows'?: number;
+  'Hash Batches'?: number;
+  Plans?: PlanNode[];
+  [key: string]: unknown;
+}
+
+interface ExecutionPlan {
+  Plan: PlanNode;
+  'Execution Time': number;
+  'Planning Time': number;
+  'Total Cost': number;
+  [key: string]: unknown;
+}
+
 @Injectable()
 export class QueryOptimizerService {
   constructor(
@@ -21,7 +47,7 @@ export class QueryOptimizerService {
       'CREATE INDEX IF NOT EXISTS idx_principles_is_active ON principles(is_active)',
 
       // Full-text search index for principles
-      'CREATE INDEX IF NOT EXISTS idx_principles_search ON principles USING gin(to_tsvector(\'english\', title || \' \' || description))',
+      "CREATE INDEX IF NOT EXISTS idx_principles_search ON principles USING gin(to_tsvector('english', title || ' ' || description))",
 
       // Performance standards table indexes
       'CREATE INDEX IF NOT EXISTS idx_performance_standards_endpoint ON performance_standards(endpoint_type)',
@@ -59,26 +85,29 @@ export class QueryOptimizerService {
   /**
    * Analyzes query performance and suggests optimizations
    */
-  async analyzeSlowQueries(thresholdMs = 100): Promise<any[]> {
+  async analyzeSlowQueries(thresholdMs = 100): Promise<SlowQueryResult[]> {
     // Enable pg_stat_statements if not already enabled
     await this.dataSource.query(`
       CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
     `);
 
     // Get slow queries
-    const result = await this.dataSource.query(`
+    const result = await this.dataSource.query(
+      `
       SELECT
         query,
         calls,
         total_time,
         mean_time,
         rows,
-        100.0 * shared_blks_hit / nullif(shared_blks_hit + shared_blks_read, 0) AS hit_percent
+        100.0 * shared_blks_hit / nullif(shared_blks_hit + shared_blks_read, 0) AS "hit_percent"
       FROM pg_stat_statements
       WHERE mean_time > $1
       ORDER BY mean_time DESC
       LIMIT 20;
-    `, [thresholdMs]);
+    `,
+      [thresholdMs],
+    );
 
     return result;
   }
@@ -165,7 +194,9 @@ export class QueryOptimizerService {
 
     for (const view of views) {
       try {
-        await this.dataSource.query(`REFRESH MATERIALIZED VIEW CONCURRENTLY ${view};`);
+        await this.dataSource.query(
+          `REFRESH MATERIALIZED VIEW CONCURRENTLY ${view};`,
+        );
         console.log(`Refreshed materialized view: ${view}`);
       } catch (error) {
         // If concurrent refresh fails, try regular refresh
@@ -182,7 +213,7 @@ export class QueryOptimizerService {
   /**
    * Implements connection pool monitoring
    */
-  async getConnectionPoolStats(): Promise<any> {
+  async getConnectionPoolStats(): Promise<Record<string, string | number>[]> {
     try {
       const result = await this.dataSource.query(`
         SELECT
@@ -197,7 +228,8 @@ export class QueryOptimizerService {
 
       return result;
     } catch (error) {
-      console.warn('Failed to get connection pool stats:', error.message);
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      console.warn('Failed to get connection pool stats:', errorMsg);
       return [];
     }
   }
@@ -221,7 +253,8 @@ export class QueryOptimizerService {
       const date = new Date(today.getFullYear(), today.getMonth() + i, 1);
       const startDate = date.toISOString().split('T')[0];
       const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 1)
-        .toISOString().split('T')[0];
+        .toISOString()
+        .split('T')[0];
 
       dates.push({ startDate, endDate });
     }
@@ -240,13 +273,22 @@ export class QueryOptimizerService {
   /**
    * Suggests query optimizations based on EXPLAIN ANALYZE
    */
-  async analyzeQuery(query: string): Promise<any> {
+  async analyzeQuery(query: string): Promise<{
+    query: string;
+    executionTime?: number;
+    planningTime?: number;
+    totalCost?: number;
+    sequentialScans?: string[];
+    suggestions?: string[];
+    error?: string;
+  }> {
     try {
       const result = await this.dataSource.query(`
         EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) ${query}
       `);
 
-      const plan = result[0]['QUERY PLAN'][0];
+      const planResult = result[0] as Record<string, ExecutionPlan[]>;
+      const plan = planResult['QUERY PLAN'][0];
 
       // Extract key metrics
       const executionTime = plan['Execution Time'];
@@ -270,15 +312,15 @@ export class QueryOptimizerService {
     } catch (error) {
       return {
         query,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
   }
 
-  private findSequentialScans(node: any): string[] {
+  private findSequentialScans(node: PlanNode): string[] {
     const scans: string[] = [];
 
-    if (node['Node Type'] === 'Seq Scan') {
+    if (node['Node Type'] === 'Seq Scan' && node['Relation Name']) {
       scans.push(node['Relation Name']);
     }
 
@@ -291,20 +333,24 @@ export class QueryOptimizerService {
     return scans;
   }
 
-  private generateOptimizationSuggestions(node: any): string[] {
+  private generateOptimizationSuggestions(node: PlanNode): string[] {
     const suggestions: string[] = [];
 
     // Check for sequential scans on large tables
-    if (node['Node Type'] === 'Seq Scan' && node['Actual Rows'] > 1000) {
+    if (
+      node['Node Type'] === 'Seq Scan' &&
+      (node['Actual Rows'] || 0) > 1000 &&
+      node['Relation Name']
+    ) {
       suggestions.push(
-        `Consider adding an index on table "${node['Relation Name']}" for better performance`
+        `Consider adding an index on table "${node['Relation Name']}" for better performance`,
       );
     }
 
     // Check for hash joins without adequate work_mem
-    if (node['Node Type'] === 'Hash Join' && node['Hash Batches'] > 1) {
+    if (node['Node Type'] === 'Hash Join' && (node['Hash Batches'] || 0) > 1) {
       suggestions.push(
-        'Consider increasing work_mem for more efficient hash joins'
+        'Consider increasing work_mem for more efficient hash joins',
       );
     }
 

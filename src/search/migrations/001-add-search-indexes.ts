@@ -51,9 +51,15 @@ export class AddSearchIndexes1672314000000 implements MigrationInterface {
     // Drop full-text search indexes
     await queryRunner.query(`DROP INDEX IF EXISTS idx_principles_fulltext`);
     await queryRunner.query(`DROP INDEX IF EXISTS idx_principles_metadata_gin`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_performance_standards_fulltext`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS idx_performance_standards_fulltext`,
+    );
     await queryRunner.query(`DROP INDEX IF EXISTS idx_quality_gates_fulltext`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_governance_rules_fulltext`);
-    await queryRunner.query(`DROP INDEX IF EXISTS idx_governance_rules_tags_gin`);
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS idx_governance_rules_fulltext`,
+    );
+    await queryRunner.query(
+      `DROP INDEX IF EXISTS idx_governance_rules_tags_gin`,
+    );
   }
 }

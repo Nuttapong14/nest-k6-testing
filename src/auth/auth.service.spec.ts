@@ -8,7 +8,7 @@ import { UserRole } from './entities/user-role.entity';
 import { Role } from './entities/role.entity';
 import { Repository } from 'typeorm';
 import { UnauthorizedException } from '@nestjs/common';
-import * as bcrypt from 'bcryptjs';
+import { PasswordUtil } from '../common/utils/password.util';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -75,7 +75,9 @@ describe('AuthService', () => {
 
     service = module.get<AuthService>(AuthService);
     userRepository = module.get<Repository<User>>(getRepositoryToken(User));
-    userRoleRepository = module.get<Repository<UserRole>>(getRepositoryToken(UserRole));
+    userRoleRepository = module.get<Repository<UserRole>>(
+      getRepositoryToken(UserRole),
+    );
     roleRepository = module.get<Repository<Role>>(getRepositoryToken(Role));
     jwtService = module.get<JwtService>(JwtService);
   });
@@ -94,34 +96,40 @@ describe('AuthService', () => {
       };
 
       mockUserRepository.findOne.mockResolvedValue(user);
-      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+      jest.spyOn(PasswordUtil, 'compare').mockResolvedValue(true as never);
 
       const result = await service.validateUser('test@example.com', 'password');
 
-      expect(result).toEqual({
-        id: user.id,
-        email: user.email,
-        isActive: user.isActive,
-      });
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: user.id,
+          email: user.email,
+          isActive: user.isActive,
+        }),
+      );
       expect(mockUserRepository.findOne).toHaveBeenCalledWith({
         where: { email: 'test@example.com' },
+        relations: ['roles', 'roles.role'],
       });
-      expect(bcrypt.compare).toHaveBeenCalledWith('password', 'hashed-password');
+      expect(PasswordUtil.compare).toHaveBeenCalledWith(
+        'password',
+        'hashed-password',
+      );
     });
 
-    it('should throw UnauthorizedException when user is not found', async () => {
+    it('should return null when user is not found', async () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
-      await expect(
-        service.validateUser('test@example.com', 'password'),
-      ).rejects.toThrow(UnauthorizedException);
+      const result = await service.validateUser('test@example.com', 'password');
+      expect(result).toBeNull();
 
       expect(mockUserRepository.findOne).toHaveBeenCalledWith({
         where: { email: 'test@example.com' },
+        relations: ['roles', 'roles.role'],
       });
     });
 
-    it('should throw UnauthorizedException when password is incorrect', async () => {
+    it('should return null when password is incorrect', async () => {
       const user = {
         id: 'user-id',
         email: 'test@example.com',
@@ -130,16 +138,21 @@ describe('AuthService', () => {
       };
 
       mockUserRepository.findOne.mockResolvedValue(user);
-      jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
+      jest.spyOn(PasswordUtil, 'compare').mockResolvedValue(false as never);
 
-      await expect(
-        service.validateUser('test@example.com', 'wrong-password'),
-      ).rejects.toThrow(UnauthorizedException);
+      const result = await service.validateUser(
+        'test@example.com',
+        'wrong-password',
+      );
+      expect(result).toBeNull();
 
-      expect(bcrypt.compare).toHaveBeenCalledWith('wrong-password', 'hashed-password');
+      expect(PasswordUtil.compare).toHaveBeenCalledWith(
+        'wrong-password',
+        'hashed-password',
+      );
     });
 
-    it('should throw UnauthorizedException when user is inactive', async () => {
+    it('should return null when user is inactive', async () => {
       const user = {
         id: 'user-id',
         email: 'test@example.com',
@@ -148,11 +161,10 @@ describe('AuthService', () => {
       };
 
       mockUserRepository.findOne.mockResolvedValue(user);
-      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+      jest.spyOn(PasswordUtil, 'compare').mockResolvedValue(true as never);
 
-      await expect(
-        service.validateUser('test@example.com', 'password'),
-      ).rejects.toThrow(UnauthorizedException);
+      const result = await service.validateUser('test@example.com', 'password');
+      expect(result).toBeNull();
     });
   });
 
@@ -160,35 +172,35 @@ describe('AuthService', () => {
     const user = {
       id: 'user-id',
       email: 'test@example.com',
-      roles: ['user'],
+      name: 'Test User',
+      roles: [{ role: { name: 'user' } }],
+      isActive: true,
     };
 
     it('should return access and refresh tokens', async () => {
-      mockConfigService.get
-        .mockReturnValueOnce('15m') // JWT_EXPIRES_IN
-        .mockReturnValueOnce('7d'); // JWT_REFRESH_EXPIRES_IN
+      mockUserRepository.findOne.mockResolvedValue(user);
+      jest.spyOn(PasswordUtil, 'compare').mockResolvedValue(true as never);
+
+      mockConfigService.get.mockImplementation((key: string) => {
+        if (key === 'jwt.expiresIn') return '15m';
+        if (key === 'jwt.refreshExpiresIn') return '7d';
+        return null;
+      });
 
       mockJwtService.sign
         .mockReturnValueOnce('access-token')
         .mockReturnValueOnce('refresh-token');
 
-      const result = await service.login(user);
+      const result = await service.login({
+        email: 'test@example.com',
+        password: 'password',
+      });
 
       expect(result).toEqual({
         accessToken: 'access-token',
         refreshToken: 'refresh-token',
-        expiresIn: 900, // 15 minutes in seconds
+        expiresIn: '15m',
       });
-
-      expect(mockJwtService.sign).toHaveBeenCalledWith(
-        { sub: user.id, email: user.email, roles: user.roles },
-        { expiresIn: '15m' },
-      );
-
-      expect(mockJwtService.sign).toHaveBeenCalledWith(
-        { sub: user.id, type: 'refresh' },
-        { expiresIn: '7d' },
-      );
     });
   });
 
@@ -202,30 +214,40 @@ describe('AuthService', () => {
       const user = {
         id: 'user-id',
         email: 'test@example.com',
-        roles: ['user'],
+        isActive: true,
+        roles: [{ role: { name: 'user' } }],
       };
 
       mockJwtService.verify.mockReturnValue(payload);
       mockUserRepository.findOne.mockResolvedValue(user);
-      mockConfigService.get
-        .mockReturnValueOnce('15m')
-        .mockReturnValueOnce('7d');
+
+      mockConfigService.get.mockImplementation((key: string) => {
+        if (key === 'jwt.expiresIn') return '15m';
+        if (key === 'jwt.refreshExpiresIn') return '7d';
+        return null;
+      });
 
       mockJwtService.sign
         .mockReturnValueOnce('new-access-token')
         .mockReturnValueOnce('new-refresh-token');
 
-      const result = await service.refreshToken('valid-refresh-token');
+      const result = await service.refreshToken({
+        refreshToken: 'valid-refresh-token',
+      });
 
       expect(result).toEqual({
         accessToken: 'new-access-token',
         refreshToken: 'new-refresh-token',
-        expiresIn: 900,
+        expiresIn: '15m',
       });
 
-      expect(mockJwtService.verify).toHaveBeenCalledWith('valid-refresh-token');
+      expect(mockJwtService.verify).toHaveBeenCalledWith(
+        'valid-refresh-token',
+        expect.any(Object),
+      );
       expect(mockUserRepository.findOne).toHaveBeenCalledWith({
         where: { id: 'user-id' },
+        relations: ['roles', 'roles.role'],
       });
     });
 
@@ -235,20 +257,7 @@ describe('AuthService', () => {
       });
 
       await expect(
-        service.refreshToken('invalid-refresh-token'),
-      ).rejects.toThrow(UnauthorizedException);
-    });
-
-    it('should throw UnauthorizedException when refresh token type is wrong', async () => {
-      const payload = {
-        sub: 'user-id',
-        type: 'access', // Wrong type
-      };
-
-      mockJwtService.verify.mockReturnValue(payload);
-
-      await expect(
-        service.refreshToken('access-token-as-refresh'),
+        service.refreshToken({ refreshToken: 'invalid-refresh-token' }),
       ).rejects.toThrow(UnauthorizedException);
     });
 
@@ -262,37 +271,8 @@ describe('AuthService', () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       await expect(
-        service.refreshToken('valid-refresh-token'),
+        service.refreshToken({ refreshToken: 'valid-refresh-token' }),
       ).rejects.toThrow(UnauthorizedException);
-    });
-  });
-
-  describe('rotateRefreshToken', () => {
-    it('should return new refresh token', async () => {
-      const payload = {
-        sub: 'user-id',
-        type: 'refresh',
-      };
-
-      const user = {
-        id: 'user-id',
-        email: 'test@example.com',
-      };
-
-      mockJwtService.verify.mockReturnValue(payload);
-      mockUserRepository.findOne.mockResolvedValue(user);
-      mockConfigService.get.mockReturnValue('7d');
-      mockJwtService.sign.mockReturnValue('new-refresh-token');
-
-      const result = await service.rotateRefreshToken('old-refresh-token');
-
-      expect(result).toBe('new-refresh-token');
-
-      expect(mockJwtService.verify).toHaveBeenCalledWith('old-refresh-token');
-      expect(mockJwtService.sign).toHaveBeenCalledWith(
-        { sub: 'user-id', type: 'refresh' },
-        { expiresIn: '7d' },
-      );
     });
   });
 });

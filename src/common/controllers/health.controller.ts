@@ -38,7 +38,11 @@ export class HealthController {
   })
   async check() {
     return this.health.check([
-      async () => this.http.pingCheck('api', process.env.BASE_URL || 'http://localhost:3000'),
+      async () =>
+        this.http.pingCheck(
+          'api',
+          process.env.BASE_URL || 'http://localhost:3000',
+        ),
       async () => this.db.pingCheck('database'),
     ]);
   }
@@ -124,7 +128,8 @@ export class HealthController {
       memory: process.memoryUsage(),
       cpu: process.cpuUsage(),
       performance: {
-        averageResponseTime: this.healthService['getAverageResponseTime']?.() || 0,
+        averageResponseTime:
+          this.healthService['getAverageResponseTime']?.() || 0,
         requestCount: this.healthService['getRequestCount']?.() || 0,
         errorRate: this.healthService['getErrorRate']?.() || 0,
       },

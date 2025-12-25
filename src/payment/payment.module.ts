@@ -7,10 +7,7 @@ import { Payment } from './entities/payment.entity';
 import { WebhookController } from './webhook.controller';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Payment]),
-    ConfigModule,
-  ],
+  imports: [TypeOrmModule.forFeature([Payment]), ConfigModule],
   controllers: [PaymentController, WebhookController],
   providers: [PaymentService],
   exports: [PaymentService],

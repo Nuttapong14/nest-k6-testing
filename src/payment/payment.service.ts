@@ -16,8 +16,10 @@ export class PaymentService {
     private readonly paymentRepository: Repository<Payment>,
     private readonly configService: ConfigService,
   ) {
-    this.stripeSecretKey = this.configService.get<string>('STRIPE_SECRET_KEY') || '';
-    this.webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET') || '';
+    this.stripeSecretKey =
+      this.configService.get<string>('STRIPE_SECRET_KEY') || '';
+    this.webhookSecret =
+      this.configService.get<string>('STRIPE_WEBHOOK_SECRET') || '';
   }
 
   async createPayment(
@@ -58,12 +60,18 @@ export class PaymentService {
 
       return this.mapToDto(updatedPayment!);
     } catch (error) {
-      this.logger.error(`Failed to create payment: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to create payment: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
 
-  async getPaymentStatus(paymentId: string, userId?: string): Promise<PaymentDto> {
+  async getPaymentStatus(
+    paymentId: string,
+    userId?: string,
+  ): Promise<PaymentDto> {
     const payment = await this.paymentRepository.findOne({
       where: { id: paymentId },
     });
@@ -85,7 +93,10 @@ export class PaymentService {
     return this.mapToDto(payment);
   }
 
-  async processRefund(paymentId: string, refundDto: RefundDto): Promise<PaymentDto> {
+  async processRefund(
+    paymentId: string,
+    refundDto: RefundDto,
+  ): Promise<PaymentDto> {
     const payment = await this.paymentRepository.findOne({
       where: { id: paymentId },
     });
@@ -121,7 +132,10 @@ export class PaymentService {
 
       return this.mapToDto(updatedPayment!);
     } catch (error) {
-      this.logger.error(`Failed to process refund: ${error.message}`, error.stack);
+      this.logger.error(
+        `Failed to process refund: ${error.message}`,
+        error.stack,
+      );
       throw error;
     }
   }
@@ -137,7 +151,9 @@ export class PaymentService {
 
     for (const payment of paymentsToRetry) {
       try {
-        this.logger.log(`Retrying payment ${payment.id}, attempt ${payment.retryCount + 1}`);
+        this.logger.log(
+          `Retrying payment ${payment.id}, attempt ${payment.retryCount + 1}`,
+        );
         await this.retryPayment(payment);
       } catch (error) {
         this.logger.error(
@@ -156,7 +172,7 @@ export class PaymentService {
     this.logger.log(`Processing Stripe payment for amount ${payment.amount}`);
 
     // Simulate payment processing
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // Randomly succeed or fail for demo purposes
     const isSuccess = Math.random() > 0.2; // 80% success rate
@@ -186,7 +202,7 @@ export class PaymentService {
     this.logger.log(`Processing ${payment.paymentMethod} payment`);
 
     // Simulate payment processing
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
 
     // Mock completion
     await this.paymentRepository.update(payment.id, {
@@ -196,11 +212,14 @@ export class PaymentService {
     });
   }
 
-  private async processStripeRefund(payment: Payment, refundDto: RefundDto): Promise<void> {
+  private async processStripeRefund(
+    payment: Payment,
+    refundDto: RefundDto,
+  ): Promise<void> {
     // Mock Stripe refund implementation
     this.logger.log(`Processing Stripe refund for payment ${payment.id}`);
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // In production, use Stripe SDK to process refund
     // const refund = await stripe.refunds.create({
@@ -210,11 +229,14 @@ export class PaymentService {
     // });
   }
 
-  private async processGenericRefund(payment: Payment, refundDto: RefundDto): Promise<void> {
+  private async processGenericRefund(
+    payment: Payment,
+    refundDto: RefundDto,
+  ): Promise<void> {
     // Generic refund processing
     this.logger.log(`Processing refund for payment ${payment.id}`);
 
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
   }
 
   private async checkExternalPaymentStatus(payment: Payment): Promise<void> {
@@ -234,7 +256,7 @@ export class PaymentService {
     });
 
     // Simulate retry processing
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // Mock retry success
     const isSuccess = Math.random() > 0.3; // 70% success rate on retry
@@ -246,7 +268,10 @@ export class PaymentService {
         processedAt: new Date(),
       });
     } else {
-      const nextRetryInMinutes = Math.min(60 * Math.pow(2, retryCount), 24 * 60); // Exponential backoff
+      const nextRetryInMinutes = Math.min(
+        60 * Math.pow(2, retryCount),
+        24 * 60,
+      ); // Exponential backoff
       await this.paymentRepository.update(payment.id, {
         status: PaymentStatus.FAILED,
         failureReason: `Retry ${retryCount} failed`,
@@ -267,6 +292,10 @@ export class PaymentService {
       paymentIntentId: payment.paymentIntentId,
       transactionId: payment.transactionId,
       failureReason: payment.failureReason,
+      processedAt: payment.processedAt,
+      refundAmount: payment.refundAmount,
+      refundReason: payment.refundReason,
+      refundedAt: payment.refundedAt,
       createdAt: payment.createdAt,
       updatedAt: payment.updatedAt,
     };
@@ -299,7 +328,7 @@ export class PaymentService {
         status: PaymentStatus.COMPLETED,
         transactionId: data.charges?.data[0]?.id,
         processedAt: new Date(),
-      }
+      },
     );
 
     this.logger.log(`Payment succeeded: ${paymentIntentId}`);
@@ -316,7 +345,7 @@ export class PaymentService {
         failureReason,
         retryCount: 1,
         nextRetryAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
-      }
+      },
     );
 
     this.logger.log(`Payment failed: ${paymentIntentId} - ${failureReason}`);
@@ -329,7 +358,7 @@ export class PaymentService {
       { paymentIntentId },
       {
         status: PaymentStatus.CANCELLED,
-      }
+      },
     );
 
     this.logger.log(`Payment canceled: ${paymentIntentId}`);

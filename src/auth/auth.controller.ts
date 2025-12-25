@@ -10,7 +10,13 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiResponse,
+  ApiBody,
+} from '@nestjs/swagger';
 import type { Request } from 'express';
 import { AuthService, AuthTokens } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -29,7 +35,8 @@ export class AuthController {
   @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 attempts per minute
   @ApiOperation({
     summary: 'User login',
-    description: 'Authenticate user with email and password. Returns JWT access and refresh tokens.'
+    description:
+      'Authenticate user with email and password. Returns JWT access and refresh tokens.',
   })
   @ApiBody({
     type: LoginDto,
@@ -38,17 +45,17 @@ export class AuthController {
         summary: 'Valid credentials',
         value: {
           email: 'admin@constitution-app.com',
-          password: 'SecurePassword123!'
-        }
+          password: 'SecurePassword123!',
+        },
       },
       invalid: {
         summary: 'Invalid credentials',
         value: {
           email: 'user@example.com',
-          password: 'wrongpassword'
-        }
-      }
-    }
+          password: 'wrongpassword',
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 200,
@@ -58,18 +65,20 @@ export class AuthController {
       properties: {
         accessToken: {
           type: 'string',
-          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c'
+          example:
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
         },
         refreshToken: {
           type: 'string',
-          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c'
+          example:
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
         },
         expiresIn: {
           type: 'number',
-          example: 900
-        }
-      }
-    }
+          example: 900,
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 401,
@@ -79,9 +88,9 @@ export class AuthController {
       properties: {
         statusCode: { type: 'number', example: 401 },
         message: { type: 'string', example: 'Invalid credentials' },
-        error: { type: 'string', example: 'Unauthorized' }
-      }
-    }
+        error: { type: 'string', example: 'Unauthorized' },
+      },
+    },
   })
   @ApiResponse({
     status: 429,
@@ -90,9 +99,12 @@ export class AuthController {
       type: 'object',
       properties: {
         statusCode: { type: 'number', example: 429 },
-        message: { type: 'string', example: 'ThrottlerException: Too Many Requests' }
-      }
-    }
+        message: {
+          type: 'string',
+          example: 'ThrottlerException: Too Many Requests',
+        },
+      },
+    },
   })
   async login(@Body() loginDto: LoginDto): Promise<AuthTokens> {
     return this.authService.login(loginDto);
@@ -111,7 +123,8 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 refresh attempts per minute
   @ApiOperation({
     summary: 'Refresh access token',
-    description: 'Use refresh token to get a new access token. Implements token rotation for security.'
+    description:
+      'Use refresh token to get a new access token. Implements token rotation for security.',
   })
   @ApiBody({
     type: RefreshTokenDto,
@@ -119,10 +132,11 @@ export class AuthController {
       valid: {
         summary: 'Valid refresh token',
         value: {
-          refreshToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c'
-        }
-      }
-    }
+          refreshToken:
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 200,
@@ -132,18 +146,20 @@ export class AuthController {
       properties: {
         accessToken: {
           type: 'string',
-          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c'
+          example:
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
         },
         refreshToken: {
           type: 'string',
-          example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c'
+          example:
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c',
         },
         expiresIn: {
           type: 'number',
-          example: 900
-        }
-      }
-    }
+          example: 900,
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 401,
@@ -152,9 +168,9 @@ export class AuthController {
       type: 'object',
       properties: {
         statusCode: { type: 'number', example: 401 },
-        message: { type: 'string', example: 'Invalid refresh token' }
-      }
-    }
+        message: { type: 'string', example: 'Invalid refresh token' },
+      },
+    },
   })
   async refreshToken(
     @Body() refreshTokenDto: RefreshTokenDto,
@@ -182,7 +198,8 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({
     summary: 'Get user profile',
-    description: 'Retrieve current user profile including roles and permissions'
+    description:
+      'Retrieve current user profile including roles and permissions',
   })
   @ApiResponse({
     status: 200,
@@ -192,33 +209,33 @@ export class AuthController {
       properties: {
         id: {
           type: 'string',
-          example: '123e4567-e89b-12d3-a456-426614174000'
+          example: '123e4567-e89b-12d3-a456-426614174000',
         },
         email: {
           type: 'string',
-          example: 'admin@constitution-app.com'
+          example: 'admin@constitution-app.com',
         },
         name: {
           type: 'string',
-          example: 'John Doe'
+          example: 'John Doe',
         },
         avatar: {
           type: 'string',
           example: 'https://example.com/avatars/john-doe.jpg',
-          nullable: true
+          nullable: true,
         },
         isActive: {
           type: 'boolean',
-          example: true
+          example: true,
         },
         createdAt: {
           type: 'string',
-          example: '2024-01-01T00:00:00.000Z'
+          example: '2024-01-01T00:00:00.000Z',
         },
         lastLoginAt: {
           type: 'string',
           example: '2024-01-15T12:30:00.000Z',
-          nullable: true
+          nullable: true,
         },
         roles: {
           type: 'array',
@@ -227,13 +244,19 @@ export class AuthController {
             properties: {
               id: { type: 'number', example: 1 },
               name: { type: 'string', example: 'admin' },
-              description: { type: 'string', example: 'Administrator with full access' },
-              assignedAt: { type: 'string', example: '2024-01-01T00:00:00.000Z' }
-            }
-          }
-        }
-      }
-    }
+              description: {
+                type: 'string',
+                example: 'Administrator with full access',
+              },
+              assignedAt: {
+                type: 'string',
+                example: '2024-01-01T00:00:00.000Z',
+              },
+            },
+          },
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 401,
@@ -242,9 +265,9 @@ export class AuthController {
       type: 'object',
       properties: {
         statusCode: { type: 'number', example: 401 },
-        message: { type: 'string', example: 'Unauthorized' }
-      }
-    }
+        message: { type: 'string', example: 'Unauthorized' },
+      },
+    },
   })
   async getProfile(@User() user: any) {
     const fullProfile = await this.authService.getProfile(user.id);
