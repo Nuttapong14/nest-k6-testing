@@ -58,7 +58,7 @@ describe('PaymentService', () => {
   describe('createPayment', () => {
     const userId = 'user-123';
     const createDto: CreatePaymentDto = {
-      amount: 100.00,
+      amount: 100.0,
       currency: 'USD',
       paymentMethod: 'stripe',
       description: 'Test payment',
@@ -87,11 +87,11 @@ describe('PaymentService', () => {
         processedAt: new Date(),
       };
 
-      mockRepository.create.mockReturnValue(payment);
-      mockRepository.save
+      mockPaymentRepository.create.mockReturnValue(payment);
+      mockPaymentRepository.save
         .mockResolvedValueOnce(payment) // Initial save
         .mockResolvedValueOnce(processedPayment); // Updated after processing
-      mockRepository.findOne.mockResolvedValue(processedPayment);
+      mockPaymentRepository.findOne.mockResolvedValue(processedPayment);
 
       // Mock the private method for processing
       jest
@@ -117,11 +117,16 @@ describe('PaymentService', () => {
         metadata: processedPayment.metadata,
         paymentIntentId: processedPayment.paymentIntentId,
         transactionId: processedPayment.transactionId,
+        failureReason: undefined,
+        processedAt: expect.any(Date),
+        refundAmount: undefined,
+        refundReason: undefined,
+        refundedAt: undefined,
         createdAt: processedPayment.createdAt,
         updatedAt: processedPayment.updatedAt,
       });
 
-      expect(mockRepository.create).toHaveBeenCalledWith({
+      expect(mockPaymentRepository.create).toHaveBeenCalledWith({
         userId,
         amount: createDto.amount,
         currency: createDto.currency,
@@ -151,11 +156,11 @@ describe('PaymentService', () => {
         failureReason: 'Payment declined',
       };
 
-      mockRepository.create.mockReturnValue(payment);
-      mockRepository.save
+      mockPaymentRepository.create.mockReturnValue(payment);
+      mockPaymentRepository.save
         .mockResolvedValueOnce(payment)
         .mockResolvedValueOnce(failedPayment);
-      mockRepository.findOne.mockResolvedValue(failedPayment);
+      mockPaymentRepository.findOne.mockResolvedValue(failedPayment);
 
       // Mock the private method for processing
       jest
@@ -182,7 +187,7 @@ describe('PaymentService', () => {
         id: paymentId,
         userId,
         status: PaymentStatus.COMPLETED,
-        amount: 100.00,
+        amount: 100.0,
         currency: 'USD',
         paymentMethod: 'stripe',
         metadata: {},
@@ -190,12 +195,12 @@ describe('PaymentService', () => {
         updatedAt: new Date(),
       };
 
-      mockRepository.findOne.mockResolvedValue(payment);
+      mockPaymentRepository.findOne.mockResolvedValue(payment);
 
       const result = await service.getPaymentStatus(paymentId, userId);
 
       expect(result).toEqual(payment);
-      expect(mockRepository.findOne).toHaveBeenCalledWith({
+      expect(mockPaymentRepository.findOne).toHaveBeenCalledWith({
         where: { id: paymentId },
       });
     });
@@ -204,11 +209,11 @@ describe('PaymentService', () => {
       const paymentId = 'non-existent';
       const userId = 'user-123';
 
-      mockRepository.findOne.mockResolvedValue(null);
+      mockPaymentRepository.findOne.mockResolvedValue(null);
 
-      await expect(
-        service.getPaymentStatus(paymentId, userId),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getPaymentStatus(paymentId, userId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw NotFoundException when user tries to access another user payment', async () => {
@@ -219,11 +224,11 @@ describe('PaymentService', () => {
         userId: 'another-user', // Different user
       };
 
-      mockRepository.findOne.mockResolvedValue(payment);
+      mockPaymentRepository.findOne.mockResolvedValue(payment);
 
-      await expect(
-        service.getPaymentStatus(paymentId, userId),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.getPaymentStatus(paymentId, userId)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should allow admin to access any payment', async () => {
@@ -233,7 +238,7 @@ describe('PaymentService', () => {
         userId: 'another-user',
       };
 
-      mockRepository.findOne.mockResolvedValue(payment);
+      mockPaymentRepository.findOne.mockResolvedValue(payment);
 
       const result = await service.getPaymentStatus(paymentId); // No userId provided
 
@@ -244,7 +249,7 @@ describe('PaymentService', () => {
   describe('processRefund', () => {
     const paymentId = 'payment-123';
     const refundDto: RefundDto = {
-      amount: 100.00,
+      amount: 100.0,
       reason: 'Customer requested refund',
     };
 
@@ -252,7 +257,7 @@ describe('PaymentService', () => {
       const payment = {
         id: paymentId,
         status: PaymentStatus.COMPLETED,
-        amount: 100.00,
+        amount: 100.0,
         paymentMethod: 'stripe',
       };
 
@@ -264,9 +269,10 @@ describe('PaymentService', () => {
         refundedAt: new Date(),
       };
 
-      mockRepository.findOne.mockResolvedValue(payment);
-      mockRepository.update.mockResolvedValue(undefined);
-      mockRepository.findOne.mockResolvedValue(refundedPayment);
+      mockPaymentRepository.findOne
+        .mockResolvedValueOnce(payment)
+        .mockResolvedValueOnce(refundedPayment);
+      mockPaymentRepository.update.mockResolvedValue(undefined);
 
       // Mock the private method for refund processing
       jest
@@ -281,7 +287,7 @@ describe('PaymentService', () => {
       expect(result.refundAmount).toBe(refundDto.amount);
       expect(result.refundReason).toBe(refundDto.reason);
 
-      expect(mockRepository.update).toHaveBeenCalledWith(paymentId, {
+      expect(mockPaymentRepository.update).toHaveBeenCalledWith(paymentId, {
         status: PaymentStatus.REFUNDED,
         refundAmount: refundDto.amount,
         refundReason: refundDto.reason,
@@ -290,11 +296,11 @@ describe('PaymentService', () => {
     });
 
     it('should throw NotFoundException when payment not found', async () => {
-      mockRepository.findOne.mockResolvedValue(null);
+      mockPaymentRepository.findOne.mockResolvedValue(null);
 
-      await expect(
-        service.processRefund(paymentId, refundDto),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.processRefund(paymentId, refundDto)).rejects.toThrow(
+        NotFoundException,
+      );
     });
 
     it('should throw error when trying to refund non-completed payment', async () => {
@@ -303,11 +309,11 @@ describe('PaymentService', () => {
         status: PaymentStatus.PENDING, // Not completed
       };
 
-      mockRepository.findOne.mockResolvedValue(payment);
+      mockPaymentRepository.findOne.mockResolvedValue(payment);
 
-      await expect(
-        service.processRefund(paymentId, refundDto),
-      ).rejects.toThrow('Can only refund completed payments');
+      await expect(service.processRefund(paymentId, refundDto)).rejects.toThrow(
+        'Can only refund completed payments',
+      );
     });
   });
 
@@ -328,7 +334,7 @@ describe('PaymentService', () => {
         },
       ];
 
-      mockRepository.find.mockResolvedValue(paymentsToRetry);
+      mockPaymentRepository.find.mockResolvedValue(paymentsToRetry);
 
       // Mock retryPayment method
       jest
@@ -339,11 +345,11 @@ describe('PaymentService', () => {
 
       await service.retryFailedPayments();
 
-      expect(mockRepository.find).toHaveBeenCalledWith({
+      expect(mockPaymentRepository.find).toHaveBeenCalledWith({
         where: {
           status: PaymentStatus.FAILED,
           retryCount: LessThan(3),
-          nextRetryAt: expect.any(Date),
+          nextRetryAt: expect.anything(),
         },
       });
 
@@ -359,15 +365,15 @@ describe('PaymentService', () => {
         },
       ];
 
-      mockRepository.find.mockResolvedValue([]);
+      mockPaymentRepository.find.mockResolvedValue([]);
 
       await service.retryFailedPayments();
 
-      expect(mockRepository.find).toHaveBeenCalledWith({
+      expect(mockPaymentRepository.find).toHaveBeenCalledWith({
         where: {
           status: PaymentStatus.FAILED,
           retryCount: LessThan(3), // Should filter out max retries
-          nextRetryAt: expect.any(Date),
+          nextRetryAt: expect.anything(),
         },
       });
     });
@@ -386,11 +392,11 @@ describe('PaymentService', () => {
         },
       };
 
-      mockRepository.update.mockResolvedValue(undefined);
+      mockPaymentRepository.update.mockResolvedValue(undefined);
 
       await service.handleWebhook('payment_intent.succeeded', eventData);
 
-      expect(mockRepository.update).toHaveBeenCalledWith(
+      expect(mockPaymentRepository.update).toHaveBeenCalledWith(
         { paymentIntentId: 'pi_test' },
         {
           status: PaymentStatus.COMPLETED,
@@ -408,17 +414,17 @@ describe('PaymentService', () => {
         },
       };
 
-      mockRepository.update.mockResolvedValue(undefined);
+      mockPaymentRepository.update.mockResolvedValue(undefined);
 
       await service.handleWebhook('payment_intent.payment_failed', eventData);
 
-      expect(mockRepository.update).toHaveBeenCalledWith(
+      expect(mockPaymentRepository.update).toHaveBeenCalledWith(
         { paymentIntentId: 'pi_test' },
         {
           status: PaymentStatus.FAILED,
           failureReason: 'Insufficient funds',
           retryCount: 1,
-          nextRetryAt: expect.any(Date),
+          nextRetryAt: expect.anything(),
         },
       );
     });
@@ -428,11 +434,11 @@ describe('PaymentService', () => {
         id: 'pi_test',
       };
 
-      mockRepository.update.mockResolvedValue(undefined);
+      mockPaymentRepository.update.mockResolvedValue(undefined);
 
       await service.handleWebhook('payment_intent.canceled', eventData);
 
-      expect(mockRepository.update).toHaveBeenCalledWith(
+      expect(mockPaymentRepository.update).toHaveBeenCalledWith(
         { paymentIntentId: 'pi_test' },
         {
           status: PaymentStatus.CANCELLED,
@@ -441,7 +447,9 @@ describe('PaymentService', () => {
     });
 
     it('should ignore unknown webhook events', async () => {
-      const loggerSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+      const loggerSpy = jest
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation();
 
       await service.handleWebhook('unknown.event', {});
 
@@ -458,7 +466,7 @@ describe('PaymentService', () => {
       const payment = {
         id: 'payment-123',
         userId: 'user-123',
-        amount: 100.00,
+        amount: 100.0,
         currency: 'USD',
         status: PaymentStatus.COMPLETED,
         paymentMethod: 'stripe',

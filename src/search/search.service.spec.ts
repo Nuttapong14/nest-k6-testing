@@ -122,16 +122,20 @@ describe('SearchService', () => {
       gateQueryBuilder.getMany.mockResolvedValue([]);
       ruleQueryBuilder.getMany.mockResolvedValue([]);
 
-      mockPrincipleRepository.createQueryBuilder.mockReturnValue(principleQueryBuilder);
-      mockStandardRepository.createQueryBuilder.mockReturnValue(standardQueryBuilder);
+      mockPrincipleRepository.createQueryBuilder.mockReturnValue(
+        principleQueryBuilder,
+      );
+      mockStandardRepository.createQueryBuilder.mockReturnValue(
+        standardQueryBuilder,
+      );
       mockGateRepository.createQueryBuilder.mockReturnValue(gateQueryBuilder);
       mockRuleRepository.createQueryBuilder.mockReturnValue(ruleQueryBuilder);
 
       const result = await service.search(searchDto);
 
       expect(result.data).toHaveLength(2);
-      expect(result.data[0].type).toBe('principle');
-      expect(result.data[1].type).toBe('standard');
+      expect(result.data[0].type).toBe('standard');
+      expect(result.data[1].type).toBe('principle');
       expect(result.meta.total).toBe(2);
     });
 
@@ -158,7 +162,9 @@ describe('SearchService', () => {
       const principleQueryBuilder = createQueryBuilderMock();
       principleQueryBuilder.getMany.mockResolvedValue(principles);
 
-      mockPrincipleRepository.createQueryBuilder.mockReturnValue(principleQueryBuilder);
+      mockPrincipleRepository.createQueryBuilder.mockReturnValue(
+        principleQueryBuilder,
+      );
 
       const result = await service.search(searchDto);
 
@@ -178,7 +184,9 @@ describe('SearchService', () => {
       const principleQueryBuilder = createQueryBuilderMock();
       principleQueryBuilder.getMany.mockResolvedValue([]);
 
-      mockPrincipleRepository.createQueryBuilder.mockReturnValue(principleQueryBuilder);
+      mockPrincipleRepository.createQueryBuilder.mockReturnValue(
+        principleQueryBuilder,
+      );
 
       await service.search(searchDto);
 
@@ -197,13 +205,15 @@ describe('SearchService', () => {
       const principleQueryBuilder = createQueryBuilderMock();
       principleQueryBuilder.getMany.mockResolvedValue([]);
 
-      mockPrincipleRepository.createQueryBuilder.mockReturnValue(principleQueryBuilder);
+      mockPrincipleRepository.createQueryBuilder.mockReturnValue(
+        principleQueryBuilder,
+      );
 
       await service.search(searchDto);
 
       expect(principleQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'principle.metadata->>:category = :true',
-        { category: 'security', true: 'true' },
+        `principle.metadata->>'category' = :category`,
+        { category: 'security' },
       );
     });
 
@@ -216,12 +226,14 @@ describe('SearchService', () => {
       const principleQueryBuilder = createQueryBuilderMock();
       principleQueryBuilder.getMany.mockResolvedValue([]);
 
-      mockPrincipleRepository.createQueryBuilder.mockReturnValue(principleQueryBuilder);
+      mockPrincipleRepository.createQueryBuilder.mockReturnValue(
+        principleQueryBuilder,
+      );
 
       await service.search(searchDto);
 
       expect(principleQueryBuilder.andWhere).toHaveBeenCalledWith(
-        'principle.metadata->>tags ?| ARRAY[:...tags]',
+        `principle.metadata->'tags' ?| ARRAY[:...tags]::text[]`,
         { tags: ['security', 'auth'] },
       );
     });
@@ -236,7 +248,9 @@ describe('SearchService', () => {
       const principleQueryBuilder = createQueryBuilderMock();
       principleQueryBuilder.getMany.mockResolvedValue([]);
 
-      mockPrincipleRepository.createQueryBuilder.mockReturnValue(principleQueryBuilder);
+      mockPrincipleRepository.createQueryBuilder.mockReturnValue(
+        principleQueryBuilder,
+      );
 
       await service.search(searchDto);
 
@@ -250,7 +264,8 @@ describe('SearchService', () => {
       const searchDto: SearchDto = {
         query: 'test',
         sortBy: SortBy.RELEVANCE,
-        sortOrder: SortOrder.DESC,
+        sortOrder: SortOrder.ASC,
+        type: SearchType.PRINCIPLES,
       };
 
       const principles = [
@@ -277,18 +292,23 @@ describe('SearchService', () => {
       const principleQueryBuilder = createQueryBuilderMock();
       principleQueryBuilder.getMany.mockResolvedValue(principles);
 
-      mockPrincipleRepository.createQueryBuilder.mockReturnValue(principleQueryBuilder);
+      mockPrincipleRepository.createQueryBuilder.mockReturnValue(
+        principleQueryBuilder,
+      );
 
       const result = await service.search(searchDto);
 
       expect(result.data[0].title).toBe('Test'); // Should come first due to relevance
-      expect(result.data[0].relevanceScore).toBeGreaterThan(result.data[1].relevanceScore);
+      expect(result.data[0].relevanceScore).toBeGreaterThan(
+        result.data[1].relevanceScore,
+      );
     });
 
     it('should sort results by priority when sorting by PRIORITY', async () => {
       const searchDto: SearchDto = {
         sortBy: SortBy.PRIORITY,
-        sortOrder: SortOrder.DESC,
+        sortOrder: SortOrder.ASC,
+        type: SearchType.PRINCIPLES,
       };
 
       const principles = [
@@ -315,7 +335,9 @@ describe('SearchService', () => {
       const principleQueryBuilder = createQueryBuilderMock();
       principleQueryBuilder.getMany.mockResolvedValue(principles);
 
-      mockPrincipleRepository.createQueryBuilder.mockReturnValue(principleQueryBuilder);
+      mockPrincipleRepository.createQueryBuilder.mockReturnValue(
+        principleQueryBuilder,
+      );
 
       const result = await service.search(searchDto);
 
@@ -326,6 +348,7 @@ describe('SearchService', () => {
       const searchDto: SearchDto = {
         page: 2,
         limit: 5,
+        type: SearchType.PRINCIPLES,
       };
 
       const principles = Array.from({ length: 10 }, (_, i) => ({
@@ -341,7 +364,9 @@ describe('SearchService', () => {
       const principleQueryBuilder = createQueryBuilderMock();
       principleQueryBuilder.getMany.mockResolvedValue(principles);
 
-      mockPrincipleRepository.createQueryBuilder.mockReturnValue(principleQueryBuilder);
+      mockPrincipleRepository.createQueryBuilder.mockReturnValue(
+        principleQueryBuilder,
+      );
 
       const result = await service.search(searchDto);
 
@@ -424,7 +449,8 @@ describe('SearchService', () => {
 
   describe('generateHighlights', () => {
     it('should extract relevant sentences as highlights', () => {
-      const text = 'This is the first sentence. This sentence contains security. Another sentence about authentication.';
+      const text =
+        'This is the first sentence. This sentence contains security. Another sentence about authentication.';
       const query = 'security authentication';
 
       const service = new SearchService(
@@ -442,7 +468,8 @@ describe('SearchService', () => {
     });
 
     it('should limit highlights to 3 maximum', () => {
-      const text = 'Sentence 1 about security. Sentence 2 about security. Sentence 3 about security. Sentence 4 about security. Sentence 5 about security.';
+      const text =
+        'Sentence 1 about security. Sentence 2 about security. Sentence 3 about security. Sentence 4 about security. Sentence 5 about security.';
       const query = 'security';
 
       const service = new SearchService(

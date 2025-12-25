@@ -9,12 +9,7 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiOperation,
-  ApiResponse,
-  ApiHeader,
-} from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiHeader } from '@nestjs/swagger';
 import { PaymentService } from './payment.service';
 import { WebhookEventDto } from './dto/payment.dto';
 import * as crypto from 'crypto';
@@ -26,7 +21,8 @@ export class WebhookController {
   private readonly webhookSecret: string;
 
   constructor(private readonly paymentService: PaymentService) {
-    this.webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || 'test_webhook_secret';
+    this.webhookSecret =
+      process.env.STRIPE_WEBHOOK_SECRET || 'test_webhook_secret';
   }
 
   @Post('stripe')
@@ -222,7 +218,10 @@ export class WebhookController {
     }
   }
 
-  private verifyPaypalWebhook(webhookData: any, headers: Record<string, string>): boolean {
+  private verifyPaypalWebhook(
+    webhookData: any,
+    headers: Record<string, string>,
+  ): boolean {
     // In production, implement actual PayPal webhook verification
     // This involves fetching the webhook ID and verifying the signature
     return true;

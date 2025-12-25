@@ -37,7 +37,9 @@ describe('Constitution Endpoints (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    userRepository = moduleFixture.get<Repository<User>>(getRepositoryToken(User));
+    userRepository = moduleFixture.get<Repository<User>>(
+      getRepositoryToken(User),
+    );
     principleRepository = moduleFixture.get<Repository<Principle>>(
       getRepositoryToken(Principle),
     );
@@ -97,13 +99,11 @@ describe('Constitution Endpoints (e2e)', () => {
         userAccessToken = userResponse.body.accessToken;
       } else {
         // Create user if doesn't exist
-        await request(app.getHttpServer())
-          .post('/auth/register')
-          .send({
-            email: 'user@example.com',
-            password: 'UserPassword123!',
-            name: 'Test User',
-          });
+        await request(app.getHttpServer()).post('/auth/register').send({
+          email: 'user@example.com',
+          password: 'UserPassword123!',
+          name: 'Test User',
+        });
 
         const loginResponse = await request(app.getHttpServer())
           .post('/auth/login')
@@ -127,13 +127,11 @@ describe('Constitution Endpoints (e2e)', () => {
         adminAccessToken = adminResponse.body.accessToken;
       } else {
         // Create admin if doesn't exist
-        await request(app.getHttpServer())
-          .post('/auth/register')
-          .send({
-            email: 'admin@example.com',
-            password: 'AdminPassword123!',
-            name: 'Admin User',
-          });
+        await request(app.getHttpServer()).post('/auth/register').send({
+          email: 'admin@example.com',
+          password: 'AdminPassword123!',
+          name: 'Admin User',
+        });
 
         const loginResponse = await request(app.getHttpServer())
           .post('/auth/login')
@@ -207,7 +205,12 @@ describe('Constitution Endpoints (e2e)', () => {
           title: 'High Priority Principle',
           description: 'High priority test',
           priority: 1,
-          metadata: { category: 'test', tags: [], relatedPrinciples: [], examples: [] },
+          metadata: {
+            category: 'test',
+            tags: [],
+            relatedPrinciples: [],
+            examples: [],
+          },
           isActive: true,
         },
         {
@@ -215,7 +218,12 @@ describe('Constitution Endpoints (e2e)', () => {
           title: 'Low Priority Principle',
           description: 'Low priority test',
           priority: 5,
-          metadata: { category: 'test', tags: [], relatedPrinciples: [], examples: [] },
+          metadata: {
+            category: 'test',
+            tags: [],
+            relatedPrinciples: [],
+            examples: [],
+          },
           isActive: true,
         },
       ]);
@@ -237,9 +245,7 @@ describe('Constitution Endpoints (e2e)', () => {
       expect(response.body.data.length).toBeLessThanOrEqual(2);
       expect(response.body.meta.page).toBe(1);
       expect(response.body.meta.limit).toBe(2);
-      expect(response.body.meta.hasNextPage).toBe(
-        response.body.meta.total > 2,
-      );
+      expect(response.body.meta.hasNextPage).toBe(response.body.meta.total > 2);
     });
   });
 
@@ -440,7 +446,12 @@ describe('Constitution Endpoints (e2e)', () => {
         title: 'Delete Me',
         description: 'This principle will be deleted',
         priority: 5,
-        metadata: { category: 'test', tags: [], relatedPrinciples: [], examples: [] },
+        metadata: {
+          category: 'test',
+          tags: [],
+          relatedPrinciples: [],
+          examples: [],
+        },
         isActive: true,
       });
       const saved = await principleRepository.save(principleToDelete);

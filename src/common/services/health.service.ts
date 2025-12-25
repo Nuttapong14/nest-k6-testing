@@ -4,6 +4,29 @@ import { HealthIndicatorResult } from '@nestjs/terminus';
 import { Redis } from 'ioredis';
 import { ConfigService } from '@nestjs/config';
 
+interface DatabaseStats {
+  totalConnections: number;
+  activeConnections: number;
+  idleConnections: number;
+  databaseSize: string;
+  lastCheckpoint: Date | null;
+}
+
+interface PerformanceMetrics {
+  averageResponseTime: number;
+  requestCount: number;
+  errorRate: number;
+}
+
+interface OverallHealthResult {
+  status: 'up' | 'down';
+  timestamp: string;
+  version: string;
+  environment: string;
+  checks: Record<string, HealthIndicatorResult>;
+  performance: PerformanceMetrics;
+}
+
 @Injectable()
 export class HealthService {
   constructor(
@@ -215,7 +238,7 @@ export class HealthService {
   /**
    * Check overall application health
    */
-  async checkOverallHealth(): Promise<any> {
+  async checkOverallHealth(): Promise<OverallHealthResult> {
     const checks = await Promise.allSettled([
       this.checkDatabase(),
       this.checkRedis(),
@@ -224,18 +247,29 @@ export class HealthService {
       this.checkUptime(),
     ]);
 
-    const results: any = {
+    const results: OverallHealthResult = {
       status: 'up',
       timestamp: new Date().toISOString(),
       version: process.env.npm_package_version || '1.0.0',
       environment: process.env.NODE_ENV || 'development',
       checks: {},
+      performance: {
+        averageResponseTime: 0,
+        requestCount: 0,
+        errorRate: 0,
+      },
     };
 
     let hasDown = false;
 
     checks.forEach((check, index) => {
-      const checkNames = ['database', 'redis', 'memory', 'apiResponseTime', 'uptime'];
+      const checkNames = [
+        'database',
+        'redis',
+        'memory',
+        'apiResponseTime',
+        'uptime',
+      ];
       const checkName = checkNames[index];
 
       if (check.status === 'fulfilled') {
@@ -246,10 +280,14 @@ export class HealthService {
           hasDown = true;
         }
       } else {
+        const errorMsg =
+          check.reason instanceof Error
+            ? check.reason.message
+            : 'Unknown error';
         results.checks[checkName] = {
           [checkName]: {
             status: 'down',
-            info: { error: check.reason?.message || 'Unknown error' },
+            info: { error: errorMsg },
           },
         };
         hasDown = true;
@@ -306,23 +344,23 @@ export class HealthService {
     };
   }
 
-  private async getDatabaseStats(): Promise<any> {
+  private async getDatabaseStats(): Promise<DatabaseStats> {
     try {
       const stats = await this.dataSource.query(`
         SELECT
-          (SELECT COUNT(*) FROM pg_stat_activity WHERE datname = current_database()) as totalConnections,
-          (SELECT COUNT(*) FROM pg_stat_activity WHERE state = 'active' AND datname = current_database()) as activeConnections,
-          (SELECT COUNT(*) FROM pg_stat_activity WHERE state = 'idle' AND datname = current_database()) as idleConnections,
-          pg_size_pretty(pg_database_size(current_database())) as databaseSize,
-          pg_last_xact_replay_timestamp() as lastCheckpoint
+          (SELECT COUNT(*) FROM pg_stat_activity WHERE datname = current_database()) as "totalConnections",
+          (SELECT COUNT(*) FROM pg_stat_activity WHERE state = 'active' AND datname = current_database()) as "activeConnections",
+          (SELECT COUNT(*) FROM pg_stat_activity WHERE state = 'idle' AND datname = current_database()) as "idleConnections",
+          pg_size_pretty(pg_database_size(current_database())) as "databaseSize",
+          pg_last_xact_replay_timestamp() as "lastCheckpoint"
       `);
 
       return {
         totalConnections: parseInt(stats[0]?.totalConnections) || 0,
         activeConnections: parseInt(stats[0]?.activeConnections) || 0,
         idleConnections: parseInt(stats[0]?.idleConnections) || 0,
-        databaseSize: stats[0]?.databasesize || 'Unknown',
-        lastCheckpoint: stats[0]?.lastcheckpoint || null,
+        databaseSize: stats[0]?.databaseSize || 'Unknown',
+        lastCheckpoint: stats[0]?.lastCheckpoint || null,
       };
     } catch (error) {
       return {
@@ -335,9 +373,9 @@ export class HealthService {
     }
   }
 
-  private parseRedisInfo(info: string): Record<string, any> {
+  private parseRedisInfo(info: string): Record<string, string | number> {
     const lines = info.split('\r\n');
-    const result: Record<string, any> = {};
+    const result: Record<string, string | number> = {};
 
     for (const line of lines) {
       if (line.includes(':')) {
@@ -350,27 +388,30 @@ export class HealthService {
   }
 
   private getAverageResponseTime(): number {
-    const metrics = global['performanceMetrics'] || [];
+    const metrics = (global as any).performanceMetrics || [];
     if (metrics.length === 0) return 0;
 
     const totalDuration = metrics.reduce(
-      (sum: number, m: any) => sum + parseInt(m.duration || 0),
-      0
+      (sum: number, m: { duration?: string }) =>
+        sum + parseInt(m.duration || '0'),
+      0,
     );
 
     return Math.round(totalDuration / metrics.length);
   }
 
   private getRequestCount(): number {
-    const metrics = global['performanceMetrics'] || [];
+    const metrics = (global as any).performanceMetrics || [];
     return metrics.length;
   }
 
   private getErrorRate(): number {
-    const metrics = global['performanceMetrics'] || [];
+    const metrics = (global as any).performanceMetrics || [];
     if (metrics.length === 0) return 0;
 
-    const errorCount = metrics.filter((m: any) => m.statusCode >= 400).length;
+    const errorCount = metrics.filter(
+      (m: { statusCode?: number }) => (m.statusCode || 0) >= 400,
+    ).length;
     return Math.round((errorCount / metrics.length) * 100);
   }
 }

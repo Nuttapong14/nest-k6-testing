@@ -15,7 +15,10 @@ export const AppDataSource = new DataSource({
   entities: [join(__dirname, '..', '**', '*.entity{.ts,.js}')],
   migrations: [join(__dirname, '..', 'database', 'migrations', '*{.ts,.js}')],
   synchronize: false, // Always disable for CLI to use migrations
-  logging: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+  logging:
+    process.env.NODE_ENV === 'development'
+      ? ['query', 'error', 'warn']
+      : ['error'],
   extra: {
     max: 100,
     connectionTimeoutMillis: 30000,

@@ -22,7 +22,8 @@ import { CommonModule } from '../common/common.module';
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('jwt.secret') || 'default-secret-key',
         signOptions: {
-          expiresIn: (configService.get<string>('jwt.expiresIn') || '15m') as StringValue,
+          expiresIn: (configService.get<string>('jwt.expiresIn') ||
+            '15m') as StringValue,
           issuer: 'constitution-app',
           audience: 'constitution-app-users',
         },

@@ -98,7 +98,12 @@ export class SearchService {
     }
 
     // Sort results
-    allResults = this.sortResults(allResults, sortBy || SortBy.RELEVANCE, sortOrder || SortOrder.DESC, query);
+    allResults = this.sortResults(
+      allResults,
+      sortBy || SortBy.RELEVANCE,
+      sortOrder || SortOrder.DESC,
+      query,
+    );
 
     // Paginate
     const total = allResults.length;
@@ -192,9 +197,12 @@ export class SearchService {
 
     // Apply tags filter via linked principle tags
     if (tags && tags.length > 0) {
-      queryBuilder.andWhere(`principle.metadata->'tags' ?| ARRAY[:...tags]::text[]`, {
-        tags,
-      });
+      queryBuilder.andWhere(
+        `principle.metadata->'tags' ?| ARRAY[:...tags]::text[]`,
+        {
+          tags,
+        },
+      );
     }
 
     // Apply priority range (from associated principle)
@@ -241,9 +249,12 @@ export class SearchService {
 
     // Apply tags filter via linked principle tags
     if (tags && tags.length > 0) {
-      queryBuilder.andWhere(`principle.metadata->'tags' ?| ARRAY[:...tags]::text[]`, {
-        tags,
-      });
+      queryBuilder.andWhere(
+        `principle.metadata->'tags' ?| ARRAY[:...tags]::text[]`,
+        {
+          tags,
+        },
+      );
     }
 
     // Apply priority range (from associated principle)
@@ -291,9 +302,12 @@ export class SearchService {
 
     // Apply tags filter via linked principle tags
     if (tags && tags.length > 0) {
-      queryBuilder.andWhere(`principle.metadata->'tags' ?| ARRAY[:...tags]::text[]`, {
-        tags,
-      });
+      queryBuilder.andWhere(
+        `principle.metadata->'tags' ?| ARRAY[:...tags]::text[]`,
+        {
+          tags,
+        },
+      );
     }
 
     // Apply priority range (from associated principle)
@@ -328,22 +342,23 @@ export class SearchService {
           return a.title.localeCompare(b.title) * multiplier;
         case SortBy.CREATED_AT:
           return (
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-          ) * multiplier;
+            (new Date(a.createdAt).getTime() -
+              new Date(b.createdAt).getTime()) *
+            multiplier
+          );
         case SortBy.UPDATED_AT:
           return (
-            new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
-          ) * multiplier;
+            (new Date(a.updatedAt).getTime() -
+              new Date(b.updatedAt).getTime()) *
+            multiplier
+          );
         default:
           return 0;
       }
     });
   }
 
-  private calculateRelevanceScore(
-    item: any,
-    query?: string,
-  ): number {
+  private calculateRelevanceScore(item: any, query?: string): number {
     if (!query) return item.priority || 5;
 
     const queryLower = query.toLowerCase();
@@ -355,7 +370,10 @@ export class SearchService {
     }
 
     // Description matches get medium score
-    if (item.description && item.description.toLowerCase().includes(queryLower)) {
+    if (
+      item.description &&
+      item.description.toLowerCase().includes(queryLower)
+    ) {
       score += 5;
     }
 
@@ -394,7 +412,10 @@ export class SearchService {
       description: principle.description,
       priority: principle.priority,
       relevanceScore: this.calculateRelevanceScore(principle, query),
-      highlights: this.generateHighlights(principle.description || '', query || ''),
+      highlights: this.generateHighlights(
+        principle.description || '',
+        query || '',
+      ),
       metadata: principle.metadata,
       createdAt: principle.createdAt,
       updatedAt: principle.updatedAt,
@@ -409,10 +430,15 @@ export class SearchService {
       type: 'standard',
       id: standard.id,
       title: `${standard.endpointType} - ${standard.targetResponseTime}ms`,
-      description: standard.description || `Performance standard for ${standard.endpointType}`,
+      description:
+        standard.description ||
+        `Performance standard for ${standard.endpointType}`,
       priority: standard.principle?.priority || 5,
       relevanceScore: this.calculateRelevanceScore(standard, query),
-      highlights: this.generateHighlights(standard.description || '', query || ''),
+      highlights: this.generateHighlights(
+        standard.description || '',
+        query || '',
+      ),
       metadata: {
         name: standard.name,
         endpointType: standard.endpointType,

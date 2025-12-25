@@ -1,10 +1,4 @@
-import {
-  Controller,
-  Get,
-  Query,
-  UseGuards,
-  HttpStatus,
-} from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, HttpStatus } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -29,7 +23,8 @@ export class SearchController {
   @Get()
   @ApiOperation({
     summary: 'Search across all constitution items',
-    description: 'Search principles, performance standards, quality gates, and governance rules with advanced filtering'
+    description:
+      'Search principles, performance standards, quality gates, and governance rules with advanced filtering',
   })
   @ApiResponse({
     status: 200,
@@ -40,14 +35,16 @@ export class SearchController {
     status: 401,
     description: 'Unauthorized',
   })
-  async search(@Query() searchDto: SearchDto): Promise<PaginatedSearchResultDto> {
+  async search(
+    @Query() searchDto: SearchDto,
+  ): Promise<PaginatedSearchResultDto> {
     return this.searchService.search(searchDto);
   }
 
   @Get('principles')
   @ApiOperation({
     summary: 'Search principles only',
-    description: 'Search within principles with advanced filtering'
+    description: 'Search within principles with advanced filtering',
   })
   @ApiResponse({
     status: 200,
@@ -66,7 +63,7 @@ export class SearchController {
   @Get('standards')
   @ApiOperation({
     summary: 'Search performance standards only',
-    description: 'Search within performance standards with advanced filtering'
+    description: 'Search within performance standards with advanced filtering',
   })
   @ApiResponse({
     status: 200,
@@ -85,7 +82,7 @@ export class SearchController {
   @Get('gates')
   @ApiOperation({
     summary: 'Search quality gates only',
-    description: 'Search within quality gates with advanced filtering'
+    description: 'Search within quality gates with advanced filtering',
   })
   @ApiResponse({
     status: 200,
@@ -104,7 +101,7 @@ export class SearchController {
   @Get('rules')
   @ApiOperation({
     summary: 'Search governance rules only',
-    description: 'Search within governance rules with advanced filtering'
+    description: 'Search within governance rules with advanced filtering',
   })
   @ApiResponse({
     status: 200,

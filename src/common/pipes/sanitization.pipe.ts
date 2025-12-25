@@ -8,7 +8,7 @@ import sanitizeHtml from 'sanitize-html';
 
 @Injectable()
 export class SanitizationPipe implements PipeTransform {
-  transform(value: any, metadata: ArgumentMetadata) {
+  transform(value: unknown, metadata: ArgumentMetadata) {
     // Skip sanitization for certain types
     if (
       metadata.type === 'body' &&
@@ -41,15 +41,17 @@ export class SanitizationPipe implements PipeTransform {
     }).trim();
   }
 
-  private sanitizeObject(obj: any): any {
+  private sanitizeObject(obj: unknown): unknown {
     if (Array.isArray(obj)) {
-      return obj.map((item) => this.sanitizeObject(item));
+      return obj.map((item: unknown) => this.sanitizeObject(item));
     }
 
     if (obj !== null && typeof obj === 'object') {
-      const sanitized: any = {};
+      const sanitized: Record<string, unknown> = {};
 
-      for (const [key, value] of Object.entries(obj)) {
+      for (const [key, value] of Object.entries(
+        obj as Record<string, unknown>,
+      )) {
         // Skip private properties
         if (key.startsWith('_')) {
           continue;
@@ -61,7 +63,9 @@ export class SanitizationPipe implements PipeTransform {
         if (typeof value === 'string') {
           sanitized[sanitizedKey] = this.sanitizeString(value);
         } else if (Array.isArray(value)) {
-          sanitized[sanitizedKey] = value.map((item) => this.sanitizeObject(item));
+          sanitized[sanitizedKey] = value.map((item: unknown) =>
+            this.sanitizeObject(item),
+          );
         } else if (value !== null && typeof value === 'object') {
           sanitized[sanitizedKey] = this.sanitizeObject(value);
         } else {
@@ -78,10 +82,14 @@ export class SanitizationPipe implements PipeTransform {
 
 // Custom validation decorator to prevent SQL injection
 export function NoSqlInjection() {
-  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+  return function (
+    target: object,
+    propertyKey: string,
+    descriptor: PropertyDescriptor,
+  ) {
     const originalMethod = descriptor.value;
 
-    descriptor.value = function (...args: any[]) {
+    descriptor.value = function (...args: unknown[]) {
       // Check for SQL injection patterns
       const sqlInjectionPatterns = [
         /(\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|EXEC|UNION|SCRIPT)\b)/gi,
@@ -118,10 +126,17 @@ export function NoSqlInjection() {
 export function RateLimit(limit: number, windowMs: number) {
   const attempts = new Map<string, { count: number; resetTime: number }>();
 
-  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+  return function (
+    target: object,
+    propertyKey: string,
+    descriptor: PropertyDescriptor,
+  ) {
     const originalMethod = descriptor.value;
 
-    descriptor.value = function (...args: any[]) {
+    descriptor.value = function (
+      this: { getRequest?: () => { ip?: string } },
+      ...args: unknown[]
+    ) {
       // Get client identifier (IP or user ID)
       const clientId = this.getRequest?.()?.ip || 'anonymous';
 
@@ -140,7 +155,7 @@ export function RateLimit(limit: number, windowMs: number) {
           // Rate limit exceeded
           const resetIn = Math.ceil((clientAttempts.resetTime - now) / 1000);
           throw new BadRequestException(
-            `Rate limit exceeded. Try again in ${resetIn} seconds.`
+            `Rate limit exceeded. Try again in ${resetIn} seconds.`,
           );
         } else {
           // Increment counter

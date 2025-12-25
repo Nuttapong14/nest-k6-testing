@@ -6,7 +6,9 @@ export const getTestDatabaseConfig = (
 ): TypeOrmModuleOptions => ({
   type: 'postgres',
   host: configService.get('DB_HOST') || 'localhost',
-  port: configService.get('DB_PORT') ? parseInt(configService.get('DB_PORT')) : 5433,
+  port: configService.get('DB_PORT')
+    ? parseInt(configService.get('DB_PORT'))
+    : 5433,
   username: configService.get('DB_USERNAME') || 'test',
   password: configService.get('DB_PASSWORD') || 'test',
   database: configService.get('DB_DATABASE') || 'constitution_test',

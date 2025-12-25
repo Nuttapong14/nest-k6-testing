@@ -20,7 +20,9 @@ describe('Complete User Journey E2E', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    userRepository = moduleFixture.get<Repository<User>>(getRepositoryToken(User));
+    userRepository = moduleFixture.get<Repository<User>>(
+      getRepositoryToken(User),
+    );
     principleRepository = moduleFixture.get<Repository<Principle>>(
       getRepositoryToken(Principle),
     );
@@ -46,7 +48,8 @@ describe('Complete User Journey E2E', () => {
       {
         slug: 'user-authentication',
         title: 'User Authentication',
-        description: 'All user interactions must be authenticated with secure tokens',
+        description:
+          'All user interactions must be authenticated with secure tokens',
         priority: 1,
         metadata: {
           category: 'security',
@@ -72,7 +75,8 @@ describe('Complete User Journey E2E', () => {
       {
         slug: 'error-handling',
         title: 'Error Handling',
-        description: 'All errors must be handled gracefully with proper responses',
+        description:
+          'All errors must be handled gracefully with proper responses',
         priority: 3,
         metadata: {
           category: 'reliability',
@@ -99,7 +103,10 @@ describe('Complete User Journey E2E', () => {
         .send(userData)
         .expect(201);
 
-      expect(registerResponse.body).toHaveProperty('message', 'User registered successfully');
+      expect(registerResponse.body).toHaveProperty(
+        'message',
+        'User registered successfully',
+      );
 
       // Step 2: Login with credentials
       const loginResponse = await request(app.getHttpServer())
@@ -176,13 +183,11 @@ describe('Complete User Journey E2E', () => {
         userToken = loginResponse.body.accessToken;
       } else {
         // Register if user doesn't exist
-        await request(app.getHttpServer())
-          .post('/auth/register')
-          .send({
-            email: 'searcher@example.com',
-            password: 'SearcherPassword123!',
-            name: 'Search User',
-          });
+        await request(app.getHttpServer()).post('/auth/register').send({
+          email: 'searcher@example.com',
+          password: 'SearcherPassword123!',
+          name: 'Search User',
+        });
 
         const response = await request(app.getHttpServer())
           .post('/auth/login')
@@ -282,13 +287,11 @@ describe('Complete User Journey E2E', () => {
         userToken = loginResponse.body.accessToken;
       } else {
         // Register if user doesn't exist
-        await request(app.getHttpServer())
-          .post('/auth/register')
-          .send({
-            email: 'payer@example.com',
-            password: 'PayerPassword123!',
-            name: 'Payer User',
-          });
+        await request(app.getHttpServer()).post('/auth/register').send({
+          email: 'payer@example.com',
+          password: 'PayerPassword123!',
+          name: 'Payer User',
+        });
 
         const response = await request(app.getHttpServer())
           .post('/auth/login')
@@ -336,7 +339,7 @@ describe('Complete User Journey E2E', () => {
       // Step 3: Monitor payment status changes
       // In a real scenario, this might poll or use webhooks
       for (let i = 0; i < 5; i++) {
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second
 
         const checkResponse = await request(app.getHttpServer())
           .get(`/payments/${createdPaymentId}`)

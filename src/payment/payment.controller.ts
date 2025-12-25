@@ -23,11 +23,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { Role } from '../common/constants/roles.constants';
 import { PaymentService } from './payment.service';
-import {
-  CreatePaymentDto,
-  PaymentDto,
-  RefundDto,
-} from './dto/payment.dto';
+import { CreatePaymentDto, PaymentDto, RefundDto } from './dto/payment.dto';
 
 @ApiTags('Payments')
 @Controller('payments')
@@ -146,6 +142,6 @@ export class PaymentController {
     // For now, returning all user payments
     const userId = req.user?.sub || req.user?.id || '';
     const payments = await this.paymentService.findByUser(userId);
-    return payments.map(payment => this.paymentService.mapToDto(payment));
+    return payments.map((payment) => this.paymentService.mapToDto(payment));
   }
 }

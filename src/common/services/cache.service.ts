@@ -62,7 +62,11 @@ export class CacheService {
   /**
    * Set a value in cache
    */
-  async set<T>(key: string, value: T, options: CacheOptions = {}): Promise<void> {
+  async set<T>(
+    key: string,
+    value: T,
+    options: CacheOptions = {},
+  ): Promise<void> {
     try {
       const fullKey = this.buildKey(key);
       const serialized = JSON.stringify(value);
@@ -104,10 +108,12 @@ export class CacheService {
       const keys = await this.redis.smembers(tagKey);
 
       if (keys.length > 0) {
-        const fullKeys = keys.map(key => this.buildKey(key));
+        const fullKeys = keys.map((key) => this.buildKey(key));
         await this.redis.del(...fullKeys);
         await this.redis.del(tagKey);
-        this.logger.verbose(`Cache invalidation by tag: ${tag} (${keys.length} keys)`);
+        this.logger.verbose(
+          `Cache invalidation by tag: ${tag} (${keys.length} keys)`,
+        );
       }
     } catch (error) {
       this.logger.error(`Cache invalidation error for tag ${tag}`, error);
@@ -120,7 +126,7 @@ export class CacheService {
   async getOrSet<T>(
     key: string,
     factory: () => Promise<T>,
-    options: CacheOptions = {}
+    options: CacheOptions = {},
   ): Promise<T> {
     // Try to get from cache first
     const cached = await this.get<T>(key);
@@ -217,13 +223,22 @@ export class CacheService {
 
     try {
       // Warm up principles list
-      await this.set('principles:list:page:1', [], { ttl: 600, tags: ['principles'] });
+      await this.set('principles:list:page:1', [], {
+        ttl: 600,
+        tags: ['principles'],
+      });
 
       // Warm up performance standards
-      await this.set('performance:standards:list', [], { ttl: 600, tags: ['performance'] });
+      await this.set('performance:standards:list', [], {
+        ttl: 600,
+        tags: ['performance'],
+      });
 
       // Warm up load test requirements
-      await this.set('loadtest:requirements:list', [], { ttl: 300, tags: ['loadtest'] });
+      await this.set('loadtest:requirements:list', [], {
+        ttl: 300,
+        tags: ['loadtest'],
+      });
 
       this.logger.log('Cache warm-up completed');
     } catch (error) {
@@ -234,7 +249,10 @@ export class CacheService {
   /**
    * Get cache statistics
    */
-  async getStats(): Promise<any> {
+  async getStats(): Promise<{
+    memory: Record<string, string | number>;
+    keyspace: Record<string, string | number>;
+  } | null> {
     try {
       const info = await this.redis.info('memory');
       const keyspace = await this.redis.info('keyspace');
@@ -277,9 +295,9 @@ export class CacheService {
     await pipeline.exec();
   }
 
-  private parseRedisInfo(info: string): Record<string, any> {
+  private parseRedisInfo(info: string): Record<string, string | number> {
     const lines = info.split('\r\n');
-    const result: Record<string, any> = {};
+    const result: Record<string, string | number> = {};
 
     for (const line of lines) {
       if (line.includes(':')) {
@@ -294,10 +312,17 @@ export class CacheService {
 
 // Cache decorator for methods
 export function Cacheable(options: CacheOptions = {}) {
-  return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
+  return function (
+    target: object,
+    propertyName: string,
+    descriptor: PropertyDescriptor,
+  ) {
     const method = descriptor.value;
 
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = async function (
+      this: { cacheService: CacheService },
+      ...args: unknown[]
+    ) {
       const cacheService: CacheService = this.cacheService;
 
       // Build cache key
@@ -322,10 +347,17 @@ export function Cacheable(options: CacheOptions = {}) {
 
 // Cache invalidation decorator
 export function CacheInvalidator(tags: string[]) {
-  return function (target: any, propertyName: string, descriptor: PropertyDescriptor) {
+  return function (
+    target: object,
+    propertyName: string,
+    descriptor: PropertyDescriptor,
+  ) {
     const method = descriptor.value;
 
-    descriptor.value = async function (...args: any[]) {
+    descriptor.value = async function (
+      this: { cacheService: CacheService },
+      ...args: unknown[]
+    ) {
       const cacheService: CacheService = this.cacheService;
 
       // Execute method

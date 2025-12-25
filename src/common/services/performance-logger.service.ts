@@ -2,13 +2,39 @@ import { Injectable, NestMiddleware, Logger } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 
+interface RequestMetadata {
+  method: string;
+  url: string;
+  userAgent?: string;
+  ip?: string;
+  startTime: number;
+}
+
+interface PoolStats {
+  total: number;
+  active: number;
+  idle: number;
+  waiting: number;
+}
+
+interface PerformanceLogEntry {
+  correlationId?: string;
+  method?: string;
+  url?: string;
+  statusCode?: number;
+  duration?: string;
+  timestamp?: string;
+  [key: string]: unknown;
+}
+
 @Injectable()
 export class PerformanceLoggerService {
   private readonly logger = new Logger(PerformanceLoggerService.name);
-  private readonly requestMetrics = new Map<string, any>();
+  private readonly requestMetrics = new Map<string, RequestMetadata>();
 
   logRequestStart(request: Request): string {
-    const correlationId = request.headers['x-correlation-id'] as string || uuidv4();
+    const correlationId =
+      (request.headers['x-correlation-id'] as string) || uuidv4();
     const startTime = Date.now();
 
     // Store request metadata
@@ -24,13 +50,17 @@ export class PerformanceLoggerService {
     request['correlationId'] = correlationId;
 
     this.logger.verbose(
-      `Request started: ${request.method} ${request.url} [${correlationId}]`
+      `Request started: ${request.method} ${request.url} [${correlationId}]`,
     );
 
     return correlationId;
   }
 
-  logRequestEnd(request: Request, response: Response, correlationId: string): void {
+  logRequestEnd(
+    request: Request,
+    response: Response,
+    correlationId: string,
+  ): void {
     const metrics = this.requestMetrics.get(correlationId);
     if (!metrics) return;
 
@@ -69,25 +99,22 @@ export class PerformanceLoggerService {
     this.requestMetrics.delete(correlationId);
   }
 
-  private storeMetrics(metrics: any): void {
-    // In production, this would store to a time-series database like InfluxDB or Prometheus
-    // For now, we'll just keep recent metrics in memory
-    const storedMetrics = global['performanceMetrics'] || [];
+  private storeMetrics(metrics: PerformanceLogEntry): void {
+    const storedMetrics = (global as any).performanceMetrics || [];
     storedMetrics.push({
       ...metrics,
       timestamp: new Date().toISOString(),
     });
 
-    // Keep only last 1000 metrics to prevent memory leaks
     if (storedMetrics.length > 1000) {
       storedMetrics.shift();
     }
 
-    global['performanceMetrics'] = storedMetrics;
+    (global as any).performanceMetrics = storedMetrics;
   }
 
-  getMetrics(limit = 100): any[] {
-    const metrics = global['performanceMetrics'] || [];
+  getMetrics(limit = 100): PerformanceLogEntry[] {
+    const metrics = (global as any).performanceMetrics || [];
     return metrics.slice(-limit);
   }
 
@@ -96,14 +123,14 @@ export class PerformanceLoggerService {
     const cutoff = Date.now() - timeWindowMinutes * 60 * 1000;
 
     const recentMetrics = metrics.filter(
-      (m) => new Date(m.timestamp).getTime() > cutoff
+      (m) => m.timestamp && new Date(m.timestamp).getTime() > cutoff,
     );
 
     if (recentMetrics.length === 0) return 0;
 
     const totalDuration = recentMetrics.reduce(
-      (sum, m) => sum + parseInt(m.duration),
-      0
+      (sum, m) => sum + parseInt(m.duration || '0'),
+      0,
     );
 
     return Math.round(totalDuration / recentMetrics.length);
@@ -114,22 +141,26 @@ export class PerformanceLoggerService {
     const cutoff = Date.now() - timeWindowMinutes * 60 * 1000;
 
     const recentMetrics = metrics.filter(
-      (m) => new Date(m.timestamp).getTime() > cutoff
+      (m) => m.timestamp && new Date(m.timestamp).getTime() > cutoff,
     );
 
     if (recentMetrics.length === 0) return 0;
 
-    const errorCount = recentMetrics.filter((m) => m.statusCode >= 400).length;
+    const errorCount = recentMetrics.filter(
+      (m) => (m.statusCode || 0) >= 400,
+    ).length;
 
     return Math.round((errorCount / recentMetrics.length) * 100);
   }
 
-  logSlowQuery(query: string, duration: number, parameters?: any): void {
+  logSlowQuery(query: string, duration: number, parameters?: unknown): void {
     const logData = {
       type: 'SLOW_QUERY',
       query: query.substring(0, 500) + (query.length > 500 ? '...' : ''),
       duration: `${duration}ms`,
-      parameters: parameters ? JSON.stringify(parameters).substring(0, 200) : null,
+      parameters: parameters
+        ? JSON.stringify(parameters).substring(0, 200)
+        : null,
       timestamp: new Date().toISOString(),
     };
 
@@ -153,7 +184,7 @@ export class PerformanceLoggerService {
     this.logger.verbose(`Cache ${hit ? 'HIT' : 'MISS'}: ${key}`, logData);
   }
 
-  logDatabaseConnection(poolStats: any): void {
+  logDatabaseConnection(poolStats: PoolStats): void {
     const logData = {
       type: 'DATABASE_POOL',
       totalConnections: poolStats.total,
@@ -189,7 +220,8 @@ export class PerformanceLoggerService {
     this.logger.verbose('Memory usage', logData);
 
     // Alert if memory usage is high
-    const heapUtilization = (memoryUsage.heapUsed / memoryUsage.heapTotal) * 100;
+    const heapUtilization =
+      (memoryUsage.heapUsed / memoryUsage.heapTotal) * 100;
     if (heapUtilization > 90) {
       this.logger.warn('High memory usage detected', {
         ...logData,
@@ -210,7 +242,12 @@ export class PerformanceLoggerService {
     this.logger.verbose('CPU usage', logData);
   }
 
-  logCustomMetric(name: string, value: number, unit = '', tags?: any): void {
+  logCustomMetric(
+    name: string,
+    value: number,
+    unit = '',
+    tags?: unknown,
+  ): void {
     const logData = {
       type: 'CUSTOM_METRIC',
       name,

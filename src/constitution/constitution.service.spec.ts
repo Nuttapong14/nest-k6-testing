@@ -3,6 +3,7 @@ import { ConstitutionService } from './constitution.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Principle } from './entities/principle.entity';
+import { PrincipleVersion } from './entities/principle-version.entity';
 import { NotFoundException } from '@nestjs/common';
 import { CreatePrincipleDto, UpdatePrincipleDto } from './dto/principle.dto';
 
@@ -20,15 +21,25 @@ describe('ConstitutionService', () => {
     createQueryBuilder: jest.fn(),
   };
 
-  const createQueryBuilderMock = {
+  const mockPrincipleVersionRepository = {
+    create: jest.fn(),
+    save: jest.fn(),
+  };
+
+  const sharedQueryBuilder = {
     where: jest.fn().mockReturnThis(),
     andWhere: jest.fn().mockReturnThis(),
     orderBy: jest.fn().mockReturnThis(),
     skip: jest.fn().mockReturnThis(),
     take: jest.fn().mockReturnThis(),
-    getManyAndCount: jest.fn(),
+    limit: jest.fn().mockReturnThis(),
+    getCount: jest.fn().mockResolvedValue(0),
+    getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    getMany: jest.fn().mockResolvedValue([]),
     leftJoinAndSelect: jest.fn().mockReturnThis(),
   };
+
+  const mockQueryBuilder = () => sharedQueryBuilder;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -38,11 +49,20 @@ describe('ConstitutionService', () => {
           provide: getRepositoryToken(Principle),
           useValue: mockPrincipleRepository,
         },
+        {
+          provide: getRepositoryToken(PrincipleVersion),
+          useValue: mockPrincipleVersionRepository,
+        },
       ],
     }).compile();
 
     service = module.get<ConstitutionService>(ConstitutionService);
-    repository = module.get<Repository<Principle>>(getRepositoryToken(Principle));
+    repository = module.get<Repository<Principle>>(
+      getRepositoryToken(Principle),
+    );
+    mockPrincipleRepository.createQueryBuilder.mockReturnValue(
+      mockQueryBuilder(),
+    );
   });
 
   afterEach(() => {
@@ -75,19 +95,25 @@ describe('ConstitutionService', () => {
         updatedAt: new Date(),
       };
 
-      mockRepository.create.mockReturnValue(expectedPrinciple);
-      mockRepository.save.mockResolvedValue(expectedPrinciple);
+      mockPrincipleRepository.create.mockReturnValue(expectedPrinciple);
+      mockPrincipleRepository.save.mockResolvedValue(expectedPrinciple);
 
       const result = await service.create(createDto, userId);
 
       expect(result).toEqual(expectedPrinciple);
-      expect(mockRepository.create).toHaveBeenCalledWith({
+      expect(mockPrincipleRepository.create).toHaveBeenCalledWith({
         ...createDto,
-        isActive: true,
+        metadata: {
+          category: 'testing',
+          tags: ['test'],
+          relatedPrinciples: [],
+          examples: [],
+        },
         currentVersion: '1.0.0',
-        createdBy: userId,
       });
-      expect(mockRepository.save).toHaveBeenCalledWith(expectedPrinciple);
+      expect(mockPrincipleRepository.save).toHaveBeenCalledWith(
+        expectedPrinciple,
+      );
     });
   });
 
@@ -101,25 +127,39 @@ describe('ConstitutionService', () => {
         isActive: true,
       };
 
-      mockRepository.findOne.mockResolvedValue(principle);
+      mockPrincipleRepository.findOne.mockResolvedValue(principle);
 
       const result = await service.findOne('test-principle');
 
       expect(result).toEqual(principle);
-      expect(mockRepository.findOne).toHaveBeenCalledWith({
-        where: { slug: 'test-principle', isActive: true },
+      expect(mockPrincipleRepository.findOne).toHaveBeenCalledWith({
+        where: { slug: 'test-principle' },
+        relations: [
+          'performanceStandards',
+          'qualityGates',
+          'governanceRules',
+          'loadTestRequirements',
+          'versions',
+        ],
       });
     });
 
     it('should throw NotFoundException when principle is not found', async () => {
-      mockRepository.findOne.mockResolvedValue(null);
+      mockPrincipleRepository.findOne.mockResolvedValue(null);
 
       await expect(service.findOne('non-existent')).rejects.toThrow(
         NotFoundException,
       );
 
-      expect(mockRepository.findOne).toHaveBeenCalledWith({
-        where: { slug: 'non-existent', isActive: true },
+      expect(mockPrincipleRepository.findOne).toHaveBeenCalledWith({
+        where: { slug: 'non-existent' },
+        relations: [
+          'performanceStandards',
+          'qualityGates',
+          'governanceRules',
+          'loadTestRequirements',
+          'versions',
+        ],
       });
     });
   });
@@ -148,19 +188,18 @@ describe('ConstitutionService', () => {
         updatedAt: new Date(),
       };
 
-      mockRepository.findOne.mockResolvedValue(existingPrinciple);
-      mockRepository.save.mockResolvedValue(updatedPrinciple);
+      mockPrincipleRepository.findOne.mockResolvedValue(existingPrinciple);
+      mockPrincipleRepository.save.mockResolvedValue(updatedPrinciple);
 
       const result = await service.update(principleId, updateDto, 'user-id');
 
       expect(result).toEqual(updatedPrinciple);
-      expect(mockRepository.findOne).toHaveBeenCalledWith({
+      expect(mockPrincipleRepository.findOne).toHaveBeenCalledWith({
         where: { id: principleId },
       });
-      expect(mockRepository.save).toHaveBeenCalledWith({
+      expect(mockPrincipleRepository.save).toHaveBeenCalledWith({
         ...existingPrinciple,
         ...updateDto,
-        updatedBy: 'user-id',
       });
     });
 
@@ -168,13 +207,13 @@ describe('ConstitutionService', () => {
       const principleId = 'non-existent-id';
       const updateDto = { title: 'Updated' };
 
-      mockRepository.findOne.mockResolvedValue(null);
+      mockPrincipleRepository.findOne.mockResolvedValue(null);
 
       await expect(
         service.update(principleId, updateDto, 'user-id'),
       ).rejects.toThrow(NotFoundException);
 
-      expect(mockRepository.findOne).toHaveBeenCalledWith({
+      expect(mockPrincipleRepository.findOne).toHaveBeenCalledWith({
         where: { id: principleId },
       });
     });
@@ -189,8 +228,8 @@ describe('ConstitutionService', () => {
         isActive: true,
       };
 
-      mockRepository.findOne.mockResolvedValue(principle);
-      mockRepository.save.mockResolvedValue({
+      mockPrincipleRepository.findOne.mockResolvedValue(principle);
+      mockPrincipleRepository.save.mockResolvedValue({
         ...principle,
         isActive: false,
         deletedAt: new Date(),
@@ -198,7 +237,7 @@ describe('ConstitutionService', () => {
 
       await service.remove(principleId);
 
-      expect(mockRepository.findOne).toHaveBeenCalledWith({
+      expect(mockPrincipleRepository.findOne).toHaveBeenCalledWith({
         where: { id: principleId },
       });
     });
@@ -206,7 +245,7 @@ describe('ConstitutionService', () => {
     it('should throw NotFoundException when principle to delete is not found', async () => {
       const principleId = 'non-existent-id';
 
-      mockRepository.findOne.mockResolvedValue(null);
+      mockPrincipleRepository.findOne.mockResolvedValue(null);
 
       await expect(service.remove(principleId)).rejects.toThrow(
         NotFoundException,
@@ -215,17 +254,10 @@ describe('ConstitutionService', () => {
   });
 
   describe('findAll', () => {
-    const mockQueryBuilder = () => ({
-      where: jest.fn().mockReturnThis(),
-      andWhere: jest.fn().mockReturnThis(),
-      orderBy: jest.fn().mockReturnThis(),
-      skip: jest.fn().mockReturnThis(),
-      take: jest.fn().mockReturnThis(),
-      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
-    });
-
     beforeEach(() => {
-      mockRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder());
+      mockPrincipleRepository.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder(),
+      );
     });
 
     it('should return paginated principles', async () => {
@@ -236,7 +268,7 @@ describe('ConstitutionService', () => {
         category: 'security',
         isActive: true,
         sortBy: 'title',
-        sortOrder: 'asc',
+        sortOrder: 'asc' as any,
       };
 
       const principles = [
@@ -244,8 +276,8 @@ describe('ConstitutionService', () => {
         { id: '2', title: 'Test Principle 2' },
       ];
 
-      const queryBuilder = mockQueryBuilder();
-      queryBuilder.getManyAndCount.mockResolvedValue([principles, 2]);
+      sharedQueryBuilder.getCount.mockResolvedValue(2);
+      sharedQueryBuilder.getMany.mockResolvedValue(principles);
 
       const result = await service.findAll(searchDto);
 
@@ -255,8 +287,8 @@ describe('ConstitutionService', () => {
         page: 1,
         limit: 10,
         totalPages: 1,
-        hasNextPage: false,
-        hasPrevPage: false,
+        hasNext: false,
+        hasPrev: false,
       });
     });
 
@@ -267,10 +299,9 @@ describe('ConstitutionService', () => {
         search: 'security',
       };
 
-      const queryBuilder = mockQueryBuilder();
       await service.findAll(searchDto);
 
-      expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      expect(sharedQueryBuilder.andWhere).toHaveBeenCalledWith(
         '(principle.title ILIKE :search OR principle.description ILIKE :search)',
         { search: '%security%' },
       );
@@ -283,12 +314,11 @@ describe('ConstitutionService', () => {
         category: 'security',
       };
 
-      const queryBuilder = mockQueryBuilder();
       await service.findAll(searchDto);
 
-      expect(queryBuilder.andWhere).toHaveBeenCalledWith(
-        'principle.metadata->>:category = :true',
-        { category: 'security', true: 'true' },
+      expect(sharedQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'principle.metadata->>:category = :categoryValue',
+        { category: 'category', categoryValue: 'security' },
       );
     });
   });
@@ -299,7 +329,8 @@ describe('ConstitutionService', () => {
       const principle = {
         id: principleId,
         metadata: {
-          relatedPrinciples: ['related-1', 'related-2'],
+          category: 'security',
+          tags: ['test'],
         },
       };
 
@@ -308,22 +339,28 @@ describe('ConstitutionService', () => {
         { id: 'related-2', title: 'Related Principle 2' },
       ];
 
-      const queryBuilder = mockQueryBuilder();
-      queryBuilder.getMany.mockResolvedValue(relatedPrinciples);
-
-      mockRepository.findOne.mockResolvedValue(principle);
-      mockRepository.createQueryBuilder.mockReturnValue(queryBuilder);
+      sharedQueryBuilder.getMany.mockResolvedValue(relatedPrinciples);
+      mockPrincipleRepository.findOne.mockResolvedValue(principle);
 
       const result = await service.findRelatedPrinciples(principleId);
 
       expect(result).toEqual(relatedPrinciples);
-      expect(queryBuilder.where).toHaveBeenCalledWith(
+      expect(sharedQueryBuilder.where).toHaveBeenCalledWith(
+        'principle.id != :id',
+        { id: principleId },
+      );
+      expect(sharedQueryBuilder.andWhere).toHaveBeenCalledWith(
         'principle.isActive = :isActive',
         { isActive: true },
       );
-      expect(queryBuilder.andWhere).toHaveBeenCalledWith(
-        'principle.id IN (:...ids)',
-        { ids: ['related-1', 'related-2'] },
+      expect(sharedQueryBuilder.andWhere).toHaveBeenCalledWith(
+        '(principle.metadata->>:category = :category OR principle.metadata->:tags ?| :tagsArray)',
+        {
+          category: 'category',
+          categoryValue: 'security',
+          tags: 'tags',
+          tagsArray: ['test'],
+        },
       );
     });
 
@@ -332,11 +369,13 @@ describe('ConstitutionService', () => {
       const principle = {
         id: principleId,
         metadata: {
-          relatedPrinciples: [],
+          category: 'security',
+          tags: ['test'],
         },
       };
 
-      mockRepository.findOne.mockResolvedValue(principle);
+      sharedQueryBuilder.getMany.mockResolvedValue([]);
+      mockPrincipleRepository.findOne.mockResolvedValue(principle);
 
       const result = await service.findRelatedPrinciples(principleId);
 

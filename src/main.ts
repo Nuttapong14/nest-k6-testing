@@ -67,7 +67,11 @@ async function bootstrap() {
         - Payments: <200ms (p95)`,
       )
       .setVersion('1.0.0')
-      .setContact('Constitution App Support', '', 'support@constitution-app.com')
+      .setContact(
+        'Constitution App Support',
+        '',
+        'support@constitution-app.com',
+      )
       .setLicense('MIT', 'https://opensource.org/licenses/MIT')
       .addBearerAuth(
         {
@@ -87,10 +91,7 @@ async function bootstrap() {
       .addTag('Search', 'Full-text search functionality')
       .addTag('Payments', 'Payment processing and status tracking')
       .addTag('Health', 'Application health and monitoring')
-      .addServer(
-        `http://localhost:${port}`,
-        'Development server',
-      )
+      .addServer(`http://localhost:${port}`, 'Development server')
       .addServer('https://api.constitution-app.com', 'Production server')
       .build();
 
