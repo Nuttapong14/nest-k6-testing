@@ -5,6 +5,10 @@ import { Repository, LessThan } from 'typeorm';
 import { Payment, PaymentStatus } from './entities/payment.entity';
 import { CreatePaymentDto, PaymentDto, RefundDto } from './dto/payment.dto';
 
+/**
+ * Service handling payment processing, refunds, and webhook events.
+ * Currently supports Stripe integration (mocked).
+ */
 @Injectable()
 export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
@@ -22,6 +26,13 @@ export class PaymentService {
       this.configService.get<string>('STRIPE_WEBHOOK_SECRET') || '';
   }
 
+  /**
+   * Initiates a new payment process.
+   * 
+   * @param createPaymentDto - Payment details (amount, currency, method)
+   * @param userId - ID of the user making the payment
+   * @returns DTO containing the initial payment status and identifiers
+   */
   async createPayment(
     createPaymentDto: CreatePaymentDto,
     userId: string,
@@ -68,6 +79,14 @@ export class PaymentService {
     }
   }
 
+  /**
+   * Retrieves the current status of a payment.
+   * 
+   * @param paymentId - Payment UUID
+   * @param userId - Optional user ID to enforce ownership check
+   * @throws NotFoundException if payment doesn't exist or user doesn't own it
+   * @returns Current payment status DTO
+   */
   async getPaymentStatus(
     paymentId: string,
     userId?: string,
@@ -93,6 +112,15 @@ export class PaymentService {
     return this.mapToDto(payment);
   }
 
+  /**
+   * Processes a refund for a completed payment.
+   * 
+   * @param paymentId - UUID of the payment to refund
+   * @param refundDto - Refund amount and reason
+   * @throws NotFoundException if payment doesn't exist
+   * @throws Error if payment is not in a completed state
+   * @returns Updated payment status DTO
+   */
   async processRefund(
     paymentId: string,
     refundDto: RefundDto,
@@ -132,14 +160,16 @@ export class PaymentService {
 
       return this.mapToDto(updatedPayment!);
     } catch (error) {
-      this.logger.error(
-        `Failed to process refund: ${error.message}`,
-        error.stack,
-      );
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      this.logger.error(`Failed to process refund: ${errorMsg}`, errorStack);
       throw error;
     }
   }
 
+  /**
+   * Identifies and retries failed payments that are eligible for retry based on exponential backoff.
+   */
   async retryFailedPayments(): Promise<void> {
     const paymentsToRetry = await this.paymentRepository.find({
       where: {
@@ -156,9 +186,12 @@ export class PaymentService {
         );
         await this.retryPayment(payment);
       } catch (error) {
+        const errorMsg =
+          error instanceof Error ? error.message : 'Unknown error';
+        const errorStack = error instanceof Error ? error.stack : undefined;
         this.logger.error(
-          `Failed to retry payment ${payment.id}: ${error.message}`,
-          error.stack,
+          `Failed to retry payment ${payment.id}: ${errorMsg}`,
+          errorStack,
         );
       }
     }
